@@ -22,6 +22,7 @@ glm::mat4 Camera::viewMatrix() const {
 void Camera::zoom(float z) {
     const float zoomSpeed = 5.0f;
     fov -= z * zoomSpeed;
+    fov = glm::max(20.0f, glm::min(90.0f, fov));
 }
 
 void Camera::rotateX(float angle) {

@@ -30,7 +30,7 @@ class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/checkerboard.png"),
+              m_texture("resources/textures/checkerboard.png"),
               m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 2.0f, -glm::vec3(1.2f, 1.1f, 0.9f)) {
 //        m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
 //            if (action == GLFW_PRESS)
@@ -49,7 +49,7 @@ public:
             m_camera.zoom(offset.y);
         });
 
-        m_meshes = GPUMesh::loadMeshGPU("resources/dragon.obj");
+        m_meshes = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
         try {
             ShaderBuilder defaultBuilder;
@@ -112,6 +112,7 @@ public:
                 } else {
                     glUniform1i(4, GL_FALSE);
                 }
+                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 mesh.draw(m_defaultShader);
             }
 
