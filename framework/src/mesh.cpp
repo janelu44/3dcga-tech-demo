@@ -1,12 +1,16 @@
 #include "mesh.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
+
 DISABLE_WARNINGS_PUSH()
+
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <tinyobjloader/tiny_obj_loader.h>
+
 DISABLE_WARNINGS_POP()
+
 #include <algorithm>
 #include <cassert>
 #include <exception>
@@ -20,22 +24,19 @@ DISABLE_WARNINGS_POP()
 
 static void centerAndScaleToUnitMesh(std::span<Mesh> meshes);
 
-static glm::vec3 construct_vec3(const float* pFloats)
-{
+static glm::vec3 construct_vec3(const float *pFloats) {
     return glm::vec3(pFloats[0], pFloats[1], pFloats[2]);
 }
 
 // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
-template <class T>
-static void hash_combine(std::size_t& seed, const T& v)
-{
+template<class T>
+static void hash_combine(std::size_t &seed, const T &v) {
     std::hash<T> hasher;
     seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
 struct VertexHash {
-    size_t operator()(const Vertex& v) const
-    {
+    size_t operator()(const Vertex &v) const {
         size_t seed = 0;
         hash_combine(seed, v.position.x);
         hash_combine(seed, v.position.y);
@@ -49,8 +50,7 @@ struct VertexHash {
     }
 };
 
-std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool centerAndNormalize)
-{
+std::vector<Mesh> loadMesh(const std::filesystem::path &file, bool centerAndNormalize) {
     if (!std::filesystem::exists(file)) {
         std::cerr << "File " << file << " does not exist." << std::endl;
         throw std::exception();
@@ -63,14 +63,15 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool centerAndNorm
     std::vector<tinyobj::material_t> inMaterials;
 
     std::string warn, error;
-    bool ret = tinyobj::LoadObj(&inAttrib, &inShapes, &inMaterials, &warn, &error, file.string().c_str(), baseDir.string().c_str());
+    bool ret = tinyobj::LoadObj(&inAttrib, &inShapes, &inMaterials, &warn, &error, file.string().c_str(),
+                                baseDir.string().c_str());
     if (!ret) {
         std::cerr << "Failed to load mesh " << file << std::endl;
         throw std::exception();
     }
 
     std::vector<Mesh> out;
-    for (const auto& shape : inShapes) {
+    for (const auto &shape: inShapes) {
         assert(shape.mesh.indices.size() % 3 == 0);
 
         size_t startTriangle = 0;
@@ -95,23 +96,38 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool centerAndNorm
                 // Load the triangle indices and lazily create the vertices.
                 glm::uvec3 triangle;
                 for (unsigned j = 0; j < 3; j++) {
-                    const auto& tinyObjIndex = shape.mesh.indices[i + j];
-                    Vertex vertex {
-                        .position = construct_vec3(&inAttrib.vertices[3 * tinyObjIndex.vertex_index]),
-                        .normal = glm::vec3(0),
-                        .texCoord = glm::vec2(0)
+                    const auto &tinyObjIndex = shape.mesh.indices[i + j];
+                    Vertex vertex{
+                            .position = construct_vec3(&inAttrib.vertices[3 * tinyObjIndex.vertex_index]),
+                            .normal = glm::vec3(0),
+                            .kd = glm::vec3(1.0f),
+                            .ks = glm::vec3(1.0f),
+                            .shininess = 1.0f,
+                            .roughness = 1.0f,
+                            .texCoord = glm::vec2(0)
                     };
                     if (tinyObjIndex.normal_index != -1 && !inAttrib.normals.empty())
-                        vertex.normal = glm::vec3(inAttrib.normals[3 * tinyObjIndex.normal_index + 0], inAttrib.normals[3 * tinyObjIndex.normal_index + 1], inAttrib.normals[3 * tinyObjIndex.normal_index + 2]);
+                        vertex.normal = glm::vec3(inAttrib.normals[3 * tinyObjIndex.normal_index + 0],
+                                                  inAttrib.normals[3 * tinyObjIndex.normal_index + 1],
+                                                  inAttrib.normals[3 * tinyObjIndex.normal_index + 2]);
                     else
                         vertex.normal = geometricNormal;
                     if (tinyObjIndex.texcoord_index != -1 && !inAttrib.texcoords.empty())
-                        vertex.texCoord = glm::vec2(inAttrib.texcoords[2 * tinyObjIndex.texcoord_index + 0], inAttrib.texcoords[2 * tinyObjIndex.texcoord_index + 1]);
+                        vertex.texCoord = glm::vec2(inAttrib.texcoords[2 * tinyObjIndex.texcoord_index + 0],
+                                                    inAttrib.texcoords[2 * tinyObjIndex.texcoord_index + 1]);
+
+                    if (prevMaterialID != -1) {
+                        const auto &objMaterial = inMaterials[prevMaterialID];
+                        vertex.kd = construct_vec3(objMaterial.diffuse);;
+                        vertex.ks = construct_vec3(objMaterial.specular);
+                        vertex.shininess = objMaterial.shininess;
+                        vertex.roughness = objMaterial.roughness;
+                    }
 
                     if (auto iter = vertexCache.find(tinyObjIndex.vertex_index); iter != std::end(vertexCache)) {
                         // Already visited this vertex? Reuse it!
                         triangle[j] = iter->second;
-                    } else {                      
+                    } else {
                         // New vertex? Create it and store it in the vertex cache.
                         vertexCache[tinyObjIndex.vertex_index] = triangle[j] = mesh.vertices.size();
                         mesh.vertices.push_back(vertex);
@@ -126,7 +142,7 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool centerAndNorm
                 mesh.material.ks = glm::vec3(0.0f);
                 mesh.material.shininess = 1.0f;
             } else {
-                const auto& objMaterial = inMaterials[materialID];
+                const auto &objMaterial = inMaterials[materialID];
                 mesh.material.kd = construct_vec3(objMaterial.diffuse);
                 if (!objMaterial.diffuse_texname.empty()) {
                     mesh.material.kdTexture = std::make_shared<Image>(baseDir / objMaterial.diffuse_texname);
@@ -148,16 +164,16 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, bool centerAndNorm
     return out;
 }
 
-static void centerAndScaleToUnitMesh(std::span<Mesh> meshes)
-{
+static void centerAndScaleToUnitMesh(std::span<Mesh> meshes) {
     std::vector<glm::vec3> positions;
-    for (const auto& mesh : meshes)
+    for (const auto &mesh: meshes)
         std::transform(std::begin(mesh.vertices), std::end(mesh.vertices),
-            std::back_inserter(positions),
-            [](const Vertex& v) { return v.position; });
-    const glm::vec3 center = std::accumulate(std::begin(positions), std::end(positions), glm::vec3(0.0f)) / static_cast<float>(positions.size());
+                       std::back_inserter(positions),
+                       [](const Vertex &v) { return v.position; });
+    const glm::vec3 center = std::accumulate(std::begin(positions), std::end(positions), glm::vec3(0.0f)) /
+                             static_cast<float>(positions.size());
     float maxD = 0.0f;
-    for (const glm::vec3& p : positions)
+    for (const glm::vec3 &p: positions)
         maxD = std::max(glm::length(p - center), maxD);
     /*// REQUIRES A MODERN COMPILER
       const float maxD = std::transform_reduce(
@@ -166,50 +182,46 @@ static void centerAndScaleToUnitMesh(std::span<Mesh> meshes)
               [](float lhs, float rhs) { return std::max(lhs, rhs); },
               [=](const Vertex& v) { return glm::length(v.pos - center); });*/
 
-    for (auto& mesh : meshes) {
+    for (auto &mesh: meshes) {
         std::transform(std::begin(mesh.vertices), std::end(mesh.vertices),
-            std::begin(mesh.vertices), [=](Vertex v) {
-                v.position = (v.position - center) / maxD;
-                return v;
-            });
+                       std::begin(mesh.vertices), [=](Vertex v) {
+                    v.position = (v.position - center) / maxD;
+                    return v;
+                });
     }
 }
 
-Mesh mergeMeshes(std::span<const Mesh> meshes)
-{
+Mesh mergeMeshes(std::span<const Mesh> meshes) {
     Mesh out;
     out.material = meshes[0].material;
-    for (const auto& mesh : meshes) {
+    for (const auto &mesh: meshes) {
         const auto vertexOffset = out.vertices.size();
         out.vertices.resize(out.vertices.size() + mesh.vertices.size());
         std::copy(std::begin(mesh.vertices), std::end(mesh.vertices), std::begin(out.vertices) + vertexOffset);
 
-        for (const auto& tri : mesh.triangles) {
-            out.triangles.push_back(tri + (unsigned)vertexOffset);
+        for (const auto &tri: mesh.triangles) {
+            out.triangles.push_back(tri + (unsigned) vertexOffset);
         }
     }
     return out;
 }
 
-void  meshFlipX(Mesh& mesh)
-{
-    for (auto& v : mesh.vertices) {
+void meshFlipX(Mesh &mesh) {
+    for (auto &v: mesh.vertices) {
         v.position.x = -v.position.x;
         v.normal.x = -v.normal.x;
     }
 }
 
-void  meshFlipY(Mesh& mesh)
-{
-    for (auto& v : mesh.vertices) {
+void meshFlipY(Mesh &mesh) {
+    for (auto &v: mesh.vertices) {
         v.position.y = -v.position.y;
         v.normal.y = -v.normal.y;
     }
 }
 
-void meshFlipZ(Mesh& mesh)
-{
-    for (auto& v : mesh.vertices) {
+void meshFlipZ(Mesh &mesh) {
+    for (auto &v: mesh.vertices) {
         v.position.z = -v.position.z;
         v.normal.z = -v.normal.z;
     }

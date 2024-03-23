@@ -14,7 +14,11 @@ DISABLE_WARNINGS_POP()
 struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
-	glm::vec2 texCoord; // Texture coordinate
+    glm::vec3 kd;
+    glm::vec3 ks;
+    float shininess;
+    float roughness;
+	glm::vec2 texCoord;
 
 	[[nodiscard]] constexpr bool operator==(const Vertex&) const noexcept = default;
 };
