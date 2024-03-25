@@ -106,8 +106,8 @@ void GPUMesh::draw(const Shader& drawingShader)
 {
     // Bind material data uniform (we assume that the uniform buffer objectg is always called 'Material')
     // Yes, we could define the binding inside the shader itself, but that would break on OpenGL versions below 4.2
-    drawingShader.bindUniformBlock("Material", 0);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_uboMaterial);
+//    drawingShader.bindUniformBlock("Material", 0);
+//    glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_uboMaterial);
     
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);
