@@ -24,8 +24,6 @@ out vec2 fragTexCoord;
 
 void main()
 {
-    gl_Position = mvpMatrix * vec4(position, 1);
-    
     fragPos = (modelMatrix * vec4(position, 1)).xyz;
     fragNormal = normalModelMatrix * normal;
     fragKd = kd;
@@ -33,4 +31,6 @@ void main()
     fragShininess = shininess;
     fragRoughness = roughness;
     fragTexCoord = texCoord;
+
+    gl_Position = mvpMatrix * vec4(fragPos, 1);
 }
