@@ -7,6 +7,7 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include <iostream>
 #include <stb/stb_image_write.h>
+#include "ImPlot/implot.h"
 
 static void glfwErrorCallback(int error, const char* description)
 {
@@ -109,6 +110,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
 
         // Setup Dear ImGui context.
         ImGui::CreateContext();
+        ImPlot::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
         // Setup Dear ImGui style.
@@ -162,6 +164,7 @@ Window::~Window()
         } break;
         };
         ImGui_ImplGlfw_Shutdown();
+        ImPlot::DestroyContext();
         ImGui::DestroyContext();
     }
 
