@@ -31,7 +31,7 @@ DISABLE_WARNINGS_POP()
 class Application {
 public:
     Application()
-            : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45) {
+            : m_window("Final Project", glm::ivec2(900, 900), OpenGLVersion::GL45) {
         try {
             ShaderBuilder defaultBuilder;
             defaultBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
@@ -226,8 +226,8 @@ private:
     glm::mat4 m_modelMatrix{1.0f};
 
     float Kernel_Gaussian_Magnitude{ 1.0 };
-    float Kernel_Gaussian_Bandwidth{ 0.05 };
-    float Kernel_Harmonic_Frequency_Magnitude{ 0.0625 };
+    float Kernel_Gaussian_Bandwidth{ 0.01 };
+    float Kernel_Harmonic_Frequency_Magnitude{ 0.072 };
     float Kernel_Harmonic_Frequency_Magnitude_Spread{ 0.0 };
     float Kernel_Harmonic_Frequency_Orientation{ 45.0 };
     float Kernel_Harmonic_Frequency_Orientation_Spread{ 0.0 };
