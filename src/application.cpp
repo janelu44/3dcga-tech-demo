@@ -25,6 +25,8 @@ DISABLE_WARNINGS_POP()
 #include <functional>
 #include <iostream>
 #include <vector>
+#include <glm/gtx/quaternion.hpp>
+#include <cmath>
 
 struct Planet {
     float size = 1.0f;
@@ -69,6 +71,7 @@ public:
         m_window.setMouseCapture(m_captureCursor);
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
+        m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
 
         try {
             ShaderBuilder defaultBuilder;
@@ -94,10 +97,26 @@ public:
         ImGui::End();
     }
 
+    static float calculateAngle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& axis) {
+        float dotProduct = glm::dot(v1, v2);
+        float cross = glm::length(glm::cross(v1, v2) - axis);
+        float magnitudeProjection = glm::length(v1) * glm::length(v2);
+
+        float angle = glm::acos(dotProduct / magnitudeProjection);
+        angle = cross > 1 ? glm::radians(360.0f) - angle : angle;
+
+        if (axis.y == 0) {
+//            std::cout << "Angle: " << glm::degrees(angle) << " Cross: " << cross << std::endl;
+        }
+
+        return angle;
+    }
+
     void update() {
         Planet sun{3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
         Planet earth{1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
         Planet moon{0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
+
         while (!m_window.shouldClose()) {
             m_window.updateInput();
             gui();
@@ -186,6 +205,70 @@ public:
                 mesh.draw(m_defaultShader);
             }
 
+            // Render cockpit meshes
+            for (GPUMesh &mesh: m_cockpit) {
+
+                m_defaultShader.bind();
+                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                if (mesh.hasTextureCoords()) {
+                    m_texture.bind(GL_TEXTURE0);
+                    glUniform1i(3, 0);
+                    glUniform1i(4, GL_TRUE);
+                } else {
+                    glUniform1i(4, GL_FALSE);
+                }
+                glm::vec3 lightPos = glm::vec3(0.0f);
+                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+                // COCKPIT PLACEHOLDER
+                glm::vec3 cockpitDir = glm::vec3(0, 0, -1);
+                glm::vec3 cameraDir = glm::normalize(m_camera.forward);
+//                cameraDir = glm::vec3(cameraDir.x, cameraDir.y, 0);
+
+//                float x_angle = calculateAngle(glm::vec3(0, cockpitDir.y, cockpitDir.z), glm::vec3(0, cameraDir.y, cameraDir.z), glm::vec3(1, 0, 1));
+                float y_angle = calculateAngle(glm::vec3(cockpitDir.x, 0, cockpitDir.z), glm::vec3(cameraDir.x, 0, cameraDir.z), glm::vec3(0, 1, 0));
+                glm::mat4 matRotY = glm::rotate(glm::mat4(1.0f), y_angle, glm::vec3(0, 1, 0));
+                glm::vec3 newCockpitDir = glm::normalize(glm::vec4(cockpitDir, 1.0f) * matRotY);
+                float x_angle = calculateAngle(glm::vec3(0, newCockpitDir.y, newCockpitDir.z), glm::vec3(0, cameraDir.y, cameraDir.z), glm::vec3(1, 0, 0));
+
+                std::cout << "Cam: " << cameraDir.x << " " << cameraDir.y << " " << cameraDir.z << std::endl;
+                std::cout << "Coc: " << newCockpitDir.x << " " << newCockpitDir.y << " " << newCockpitDir.z << std::endl;
+
+//                float z_angle = calculateAngle(glm::vec3(cockpitDir.x, cockpitDir.y, 0), glm::vec3(cameraDir.x, cameraDir.y, 0), glm::vec3(0, 0, 1));
+//
+//                std::cout << "X: " << glm::degrees(x_angle) << " Y: " << glm::degrees(y_angle) << std::endl;
+
+//                float angle = glm::acos(glm::dot(cockpitDir, cameraDir));
+//                glm::vec3 rotationAxis = glm::normalize(glm::cross(cockpitDir, cameraDir));
+//
+//                glm::quat rotationQuat = glm::angleAxis(angle, rotationAxis);
+//                glm::vec3 euler = glm::eulerAngles(rotationQuat);
+//                euler.z = 0.0f;
+//                rotationQuat = glm::quat(euler);
+//                glm::mat4 cockpitRot = glm::toMat4(rotationQuat);
+//
+//
+////                glm::mat4 cockpitRot = glm::rotate(glm::mat4(1.0f), angle, rotationAxis);
+//                glm::mat4 cockpitModel = glm::translate(glm::mat4(1.0f), m_camera.position) * cockpitRot;
+
+                glm::mat4 cockpitPos = glm::translate(glm::mat4(1.0f), m_camera.position);
+//                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, glm::vec3(rotationAxis.x, rotationAxis.y, rotationAxis.z));
+                glm::mat4 cockpitRot = glm::rotate(cockpitPos, y_angle, glm::vec3(0, 1, 0));
+                cockpitRot = glm::rotate(cockpitRot, x_angle, glm::vec3(1, 0, 0));
+//                cockpitRot = glm::rotate(cockpitPos, x_angle, glm::vec3(1, 0, 0));
+//                cockpitRot = glm::rotate(cockpitRot, -y_angle, glm::vec3(0, 1, 0));
+//                cockpitRot = glm::rotate(cockpitRot, -z_angle, glm::vec3(0, 0, 1));
+
+                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
+                glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.2f));
+
+                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
+                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+                glUniform1i(8, GL_TRUE);
+                mesh.draw(m_defaultShader);
+            }
+
             m_window.swapBuffers();
         }
     }
@@ -238,6 +321,7 @@ private:
     Shader m_shadowShader;
 
     std::vector<GPUMesh> m_meshes;
+    std::vector<GPUMesh> m_cockpit;
     Texture m_texture;
     bool m_useMaterial{true};
 
