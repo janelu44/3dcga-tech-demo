@@ -39,7 +39,7 @@ class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/textures/planet Base Color.png"),
+              m_texture("resources/textures/checkerboard.png"),
               m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(1.2f, 1.1f, 0.9f)) {
 //        m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
 //            if (action == GLFW_PRESS)
@@ -56,6 +56,16 @@ public:
 //        });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             m_camera.zoom(offset.y);
+        });
+
+        m_window.registerWindowResizeCallback([&](const glm::ivec2& size) {
+            glViewport(0, 0, size.x, size.y);
+            m_projectionMatrix = glm::perspective(
+                    glm::radians(m_camera.fov),
+                    m_window.getAspectRatio(),
+                    m_camera.zNear,
+                    m_camera.zFar
+            );
         });
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
