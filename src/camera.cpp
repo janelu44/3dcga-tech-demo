@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
+#include <GLFW/glfw3.h>
 
 DISABLE_WARNINGS_PUSH()
 
@@ -39,7 +40,7 @@ void Camera::rotateY(float angle) {
     up = glm::normalize(glm::cross(forward, horAxis));
 }
 
-void Camera::updateInput() {
+void Camera::updateInput(bool captureCursor) {
     constexpr float moveSpeed = 0.02f;
     constexpr float lookSpeed = 0.0015f;
 
@@ -64,10 +65,11 @@ void Camera::updateInput() {
 
     if (ImGui::GetIO().WantCaptureMouse) return;
 
-    if (m_pWindow->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+    if (captureCursor) {
         if (delta.x != 0.0f)
-            rotateY(delta.x);
+            rotateY(-delta.x);
         if (delta.y != 0.0f)
-            rotateX(delta.y);
+            rotateX(-delta.y);
     }
+
 }

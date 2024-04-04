@@ -41,12 +41,12 @@ public:
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
               m_texture("resources/textures/checkerboard.png"),
               m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(1.2f, 1.1f, 0.9f)) {
-//        m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
-//            if (action == GLFW_PRESS)
-//                onKeyPressed(key, mods);
+        m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
+            if (action == GLFW_PRESS)
+                onKeyPressed(key, mods);
 //            else if (action == GLFW_RELEASE)
 //                onKeyReleased(key, mods);
-//        });
+        });
 //        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
 //        m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
 //            if (action == GLFW_PRESS)
@@ -57,7 +57,6 @@ public:
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             m_camera.zoom(offset.y);
         });
-
         m_window.registerWindowResizeCallback([&](const glm::ivec2& size) {
             glViewport(0, 0, size.x, size.y);
             m_projectionMatrix = glm::perspective(
@@ -67,6 +66,7 @@ public:
                     m_camera.zFar
             );
         });
+        m_window.setMouseCapture(m_captureCursor);
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
 
@@ -101,7 +101,7 @@ public:
         while (!m_window.shouldClose()) {
             m_window.updateInput();
             gui();
-            m_camera.updateInput();
+            m_camera.updateInput(m_captureCursor);
 
             earth.revolutionProgress += earth.revolutionSpeed;
             earth.orbitProgress += earth.orbitSpeed;
@@ -158,7 +158,8 @@ public:
                 glm::mat4 earthPos = sunPos;
                 earthPos = glm::rotate(earthPos, glm::radians(earth.orbitProgress), glm::vec3(0, 1, 0));
                 earthPos = glm::translate(earthPos, glm::vec3(earth.orbitSize, 0, 0));
-                glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress), glm::vec3(0, 1, 0));
+                glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress),
+                                                 glm::vec3(0, 1, 0));
                 glm::mat3 earthNormal = glm::inverseTranspose(glm::mat3(earthRot));
                 glm::mat4 earthScale = glm::scale(earthRot, glm::vec3(earth.size));
 
@@ -173,7 +174,8 @@ public:
                 glm::mat4 moonPos = earthPos;
                 moonPos = glm::rotate(moonPos, glm::radians(moon.orbitProgress), glm::vec3(0, 1, 0));
                 moonPos = glm::translate(moonPos, glm::vec3(moon.orbitSize, 0, 0));
-                glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress), glm::vec3(0, 1, 0));
+                glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress),
+                                                glm::vec3(0, 1, 0));
                 glm::mat4 moonNormal = glm::inverseTranspose(glm::mat3(moonRot));
                 glm::mat4 moonScale = glm::scale(moonRot, glm::vec3(moon.size));
 
@@ -192,7 +194,12 @@ public:
     // key - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__keys.html
     // mods - Any modifier keys pressed, like shift or control
     void onKeyPressed(int key, int mods) {
-        std::cout << "Key pressed: " << key << std::endl;
+//        std::cout << "Key pressed: " << key << std::endl;
+        if (key == GLFW_KEY_C) {
+            m_captureCursor = !m_captureCursor;
+            m_window.setMouseCapture(m_captureCursor);
+        }
+
     }
 
     // In here you can handle key releases
@@ -224,6 +231,7 @@ public:
 private:
     Window m_window;
     Camera m_camera;
+    bool m_captureCursor{true};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
