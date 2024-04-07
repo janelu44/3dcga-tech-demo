@@ -50,12 +50,12 @@ public:
 //                onKeyReleased(key, mods);
         });
 //        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
-//        m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
-//            if (action == GLFW_PRESS)
-//                onMouseClicked(button, mods);
-//            else if (action == GLFW_RELEASE)
-//                onMouseReleased(button, mods);
-//        });
+        m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
+            if (action == GLFW_PRESS)
+                onMouseClicked(button, mods);
+            else if (action == GLFW_RELEASE)
+                onMouseReleased(button, mods);
+        });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             m_camera.zoom(offset.y);
         });
@@ -106,6 +106,7 @@ public:
             m_window.updateInput();
             gui();
             m_camera.updateInput(m_captureCursor);
+            if (!m_detachedCamera) m_lastCameraForward = m_camera.forward;
 
             earth.revolutionProgress += earth.revolutionSpeed;
             earth.orbitProgress += earth.orbitSpeed;
@@ -210,7 +211,7 @@ public:
 
                 // COCKPIT PLACEHOLDER -> BANANA ROTATE (NU MERGE BINE INCA DAR NU MAI POT SA MA MAI UIT)
                 glm::vec3 cockpitDir = glm::vec3(0, 0, -1);
-                glm::vec3 cameraDir = glm::normalize(m_camera.forward);
+                glm::vec3 cameraDir = glm::normalize(m_lastCameraForward);
 
                 float angle = glm::acos(glm::dot(cockpitDir, cameraDir));
                 glm::vec3 rotationAxis = glm::normalize(glm::cross(cockpitDir, cameraDir));
@@ -264,21 +265,31 @@ public:
     // button - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__buttons.html
     // mods - Any modifier buttons pressed
     void onMouseClicked(int button, int mods) {
-        std::cout << "Pressed mouse button: " << button << std::endl;
+//        std::cout << "Pressed mouse button: " << button << std::endl;
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            m_detachedCamera = true;
+        }
     }
 
     // If one of the mouse buttons is released this function will be called
     // button - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__buttons.html
     // mods - Any modifier buttons pressed
     void onMouseReleased(int button, int mods) {
-        std::cout << "Released mouse button: " << button << std::endl;
+//        std::cout << "Released mouse button: " << button << std::endl;
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            m_detachedCamera = false;
+        }
     }
 
 private:
     Window m_window;
     Camera m_camera;
+
+    // Camera settings
     bool m_captureCursor{true};
     bool m_thirdPerson{false};
+    bool m_detachedCamera{false};
+    glm::vec3 m_lastCameraForward{0.0f, 0.0f, -1.0f};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
