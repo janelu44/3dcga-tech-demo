@@ -192,6 +192,8 @@ public:
 
             // Render cockpit meshes
             for (GPUMesh &mesh: m_cockpit) {
+                float scale = m_thirdPerson ? 0.05f : 0.2f;
+                glm::vec3 displacement = m_thirdPerson ? glm::vec3(-0.15f, -0.1f, -0.75f) : glm::vec3(0.0f);
 
                 m_defaultShader.bind();
                 glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -215,8 +217,9 @@ public:
 
                 glm::mat4 cockpitPos = glm::translate(glm::mat4(1.0f), m_camera.position);
                 glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
-                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
-                glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.2f));
+                glm::mat4 cockpitDisplaced = glm::translate(cockpitRot, displacement);
+                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitDisplaced));
+                glm::mat4 cockpitScale = glm::scale(cockpitDisplaced, glm::vec3(scale));
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
@@ -236,6 +239,11 @@ public:
         if (key == GLFW_KEY_C) {
             m_captureCursor = !m_captureCursor;
             m_window.setMouseCapture(m_captureCursor);
+        }
+        if (key == GLFW_KEY_V) {
+            m_thirdPerson = !m_thirdPerson;
+            if (m_thirdPerson) m_camera.position -= glm::vec3(-0.15f, -0.1f, -0.75f);
+            else m_camera.position += glm::vec3(-0.15f, -0.1f, -0.75f);
         }
 
     }
@@ -270,6 +278,7 @@ private:
     Window m_window;
     Camera m_camera;
     bool m_captureCursor{true};
+    bool m_thirdPerson{false};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
