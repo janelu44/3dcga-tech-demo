@@ -11,9 +11,8 @@ class Camera {
 public:
     Camera(Window* pWindow, const glm::vec3& position, const glm::vec3& forward);
 
-    void updateInput();
+    void updateInput(bool captureCursor = false);
     glm::mat4 viewMatrix() const;
-    void zoom(float z);
     void rotateX(float angle);
     void rotateY(float angle);
 

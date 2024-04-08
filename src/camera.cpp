@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
+#include <GLFW/glfw3.h>
 
 DISABLE_WARNINGS_PUSH()
 
@@ -19,12 +20,6 @@ glm::mat4 Camera::viewMatrix() const {
     return glm::lookAt(position, position + forward, up);
 }
 
-void Camera::zoom(float z) {
-    const float zoomSpeed = 5.0f;
-    fov -= z * zoomSpeed;
-    fov = glm::max(20.0f, glm::min(90.0f, fov));
-}
-
 void Camera::rotateX(float angle) {
     const glm::vec3 horAxis = glm::cross(s_yAxis, forward);
 
@@ -39,24 +34,8 @@ void Camera::rotateY(float angle) {
     up = glm::normalize(glm::cross(forward, horAxis));
 }
 
-void Camera::updateInput() {
-    constexpr float moveSpeed = 0.02f;
+void Camera::updateInput(bool captureCursor) {
     constexpr float lookSpeed = 0.0015f;
-
-    glm::vec3 localMoveDelta{0};
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    if (m_pWindow->isKeyPressed(GLFW_KEY_A))
-        position -= moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_D))
-        position += moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_W))
-        position += moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_S))
-        position -= moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_R))
-        position += moveSpeed * up;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_F))
-        position -= moveSpeed * up;
 
     const glm::dvec2 cursorPos = m_pWindow->getCursorPos();
     const glm::vec2 delta = lookSpeed * glm::vec2(cursorPos - m_prevCursorPos);
@@ -64,10 +43,11 @@ void Camera::updateInput() {
 
     if (ImGui::GetIO().WantCaptureMouse) return;
 
-    if (m_pWindow->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+    if (captureCursor) {
         if (delta.x != 0.0f)
-            rotateY(delta.x);
+            rotateY(-delta.x);
         if (delta.y != 0.0f)
-            rotateX(delta.y);
+            rotateX(-delta.y);
     }
+
 }
