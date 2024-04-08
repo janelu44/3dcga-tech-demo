@@ -102,6 +102,10 @@ public:
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
+
+        sun = {3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
+        earth = {1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
+        moon = {0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
     }
 
     void loadCubemap() {
@@ -191,17 +195,18 @@ public:
         glDepthMask(GL_TRUE);
     }
 
-    void renderSolarSystem(const Shader& shader, Planet& sun, Planet& earth, Planet& moon) {
+    void updateSolarSystem() {
         earth.revolutionProgress += earth.revolutionSpeed;
         earth.orbitProgress += earth.orbitSpeed;
 
         moon.revolutionProgress += moon.revolutionSpeed;
         moon.orbitProgress += moon.orbitSpeed;
+    }
 
+    void renderSolarSystem(const Shader& shader) {
         glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
         for (GPUMesh &mesh: m_meshes) {
-
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             if (mesh.hasTextureCoords()) {
@@ -318,6 +323,24 @@ public:
         }
     }
 
+    void updateCamera() {
+        m_camera.updateInput(m_captureCursor);
+        if (m_thirdPerson) {
+            // Uncomment for BANANA ROTATE
+            m_player.forward = m_camera.forward;
+            m_player.up = m_camera.up;
+
+            m_player.updateInput();
+            m_camera.position = m_player.position - distance * m_camera.forward;
+        } else {
+            m_player.forward = m_camera.forward;
+            m_player.up = m_camera.up;
+
+            m_player.updateInput();
+            m_camera.position = m_player.position;
+        }
+    }
+
     void gui() {
         int dummyInteger = 0;
         ImGui::Begin("Window");
@@ -329,32 +352,14 @@ public:
     }
 
     void update() {
-        Planet sun{3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
-        Planet earth{1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
-        Planet moon{0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
-
         loadCubemap();
 
         while (!m_window.shouldClose()) {
             m_window.updateInput();
             gui();
 
-            // Update camera and player
-            m_camera.updateInput(m_captureCursor);
-            if (m_thirdPerson) {
-                // Uncomment for BANANA ROTATE
-                m_player.forward = m_camera.forward;
-                m_player.up = m_camera.up;
-
-                m_player.updateInput();
-                m_camera.position = m_player.position - distance * m_camera.forward;
-            } else {
-                m_player.forward = m_camera.forward;
-                m_player.up = m_camera.up;
-
-                m_player.updateInput();
-                m_camera.position = m_player.position;
-            }
+            updateSolarSystem();
+            updateCamera();
 
             // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
@@ -372,7 +377,7 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_defaultShader, sun, earth, moon);
+            renderSolarSystem(m_defaultShader);
             renderRocket(m_defaultShader);
 
             m_window.swapBuffers();
@@ -448,6 +453,8 @@ private:
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
     glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
     glm::mat4 m_modelMatrix{1.0f};
+
+    Planet sun, earth, moon;
 };
 
 int main() {
