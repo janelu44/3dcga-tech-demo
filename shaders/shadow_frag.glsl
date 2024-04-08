@@ -7,6 +7,10 @@ layout(location = 6) uniform vec3 lightPos;
 layout(location = 7) uniform vec3 forceColor = vec3(1.0);
 layout(location = 8) uniform bool ignoreBehind = false;
 
+layout(location = 9) uniform bool useShadow = false;
+layout(location = 10) uniform samplerCube texShadow;
+
+
 in vec3 fragPos;
 
 layout(location = 0) out float fragColor;

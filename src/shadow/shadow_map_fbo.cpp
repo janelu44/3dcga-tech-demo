@@ -58,16 +58,17 @@ bool ShadowMapFBO::Init(unsigned int WindowWidth, unsigned int WindowHeight)
     return true;
 }
 
-void ShadowMapFBO::BindForWriting(GLenum CubeFace)
+void ShadowMapFBO::BindForWriting(GLenum CubeFace) const
 {
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CubeFace, m_shadowMap, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
 }
 
-ShadowMapFBO::ShadowMapFBO() {
-    GLuint fbo, shadowMap, depth;
-    m_fbo = fbo;
-    m_shadowMap = shadowMap;
-    m_depth = depth;
+void ShadowMapFBO::BindForReading(GLenum TextureUnit) const
+{
+    glActiveTexture(TextureUnit);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_shadowMap);
 }
+
+ShadowMapFBO::ShadowMapFBO() = default;

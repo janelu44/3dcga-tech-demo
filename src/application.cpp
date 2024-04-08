@@ -62,17 +62,15 @@ public:
                 onMouseReleased(button, mods);
         });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
-            distance += offset.y * -0.1f;
+            m_distance += offset.y * -0.1f;
         });
         m_window.registerWindowResizeCallback([&](const glm::ivec2 &size) {
-            glViewport(0, 0, size.x, size.y);
             m_projectionMatrix = glm::perspective(
                     glm::radians(m_camera.fov),
                     m_window.getAspectRatio(),
                     m_camera.zNear,
                     m_camera.zFar
             );
-            m_shadowMapFBO.Init(static_cast<unsigned int>(size.x), static_cast<unsigned int>(size.y));
         });
         m_window.setMouseCapture(m_captureCursor);
 
@@ -86,8 +84,8 @@ public:
 
         try {
             ShaderBuilder testBuilder;
-            testBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
-            testBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl");
+            testBuilder.addStage(GL_VERTEX_SHADER, "shaders/test_vert.glsl");
+            testBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/test_frag.glsl");
             m_testShader = testBuilder.build();
 
             ShaderBuilder defaultBuilder;
@@ -205,8 +203,6 @@ public:
     }
 
     void renderShadowMap() {
-        glCullFace(GL_FRONT);
-
         glm::mat4 shadowProjectionMatrix = glm::perspective(
                 glm::radians(90.0f),
                 m_window.getAspectRatio(),
@@ -214,6 +210,8 @@ public:
                 m_camera.zFar
         );
 
+        glViewport(0, 0, 1024, 1024);
+        glCullFace(GL_FRONT);
         glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
 
         for (SDir dir : ShadowDir::directions) {
@@ -250,6 +248,11 @@ public:
             glm::vec3 lightPos = glm::vec3(0.0f);
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+            glUniform1i(9, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
+            glUniform1i(10, 1);
+
 
             // SUN
             glm::mat4 sunPos = glm::mat4(1.0f);
@@ -312,6 +315,10 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
+            glUniform1i(9, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
+            glUniform1i(10, 1);
+
             glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
 
@@ -361,7 +368,7 @@ public:
             m_player.up = m_camera.up;
 
             m_player.updateInput();
-            m_camera.position = m_player.position - distance * m_camera.forward;
+            m_camera.position = m_player.position - m_distance * m_camera.forward;
         } else {
             m_player.forward = m_camera.forward;
             m_player.up = m_camera.up;
@@ -401,11 +408,12 @@ public:
             m_viewMatrix = m_camera.viewMatrix();
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
-            if(shadowsEnabled) renderShadowMap();
+            if(m_shadowsEnabled) renderShadowMap();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, m_window.getWindowSize().x, m_window.getWindowSize().y);
 
             // Clear the screen
             glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
@@ -414,8 +422,8 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_defaultShader, mvpMatrix);
-            renderRocket(m_defaultShader, mvpMatrix);
+            renderSolarSystem(m_testShader, mvpMatrix);
+            renderRocket(m_testShader, mvpMatrix);
 
             m_window.swapBuffers();
         }
@@ -430,7 +438,7 @@ public:
             m_thirdPerson = !m_thirdPerson;
         }
         if (key == GLFW_KEY_H) {
-            shadowsEnabled = !shadowsEnabled;
+            m_shadowsEnabled = !m_shadowsEnabled;
         }
     }
 
@@ -460,7 +468,7 @@ private:
     // Camera settings
     bool m_captureCursor{true};
     bool m_thirdPerson{false};
-    float distance{1.0f};
+    float m_distance{1.0f};
 
     // Shader for default rendering and for depth rendering
     Shader m_testShader;
@@ -471,7 +479,7 @@ private:
 
     // Shadow Mapping
     ShadowMapFBO m_shadowMapFBO;
-    bool shadowsEnabled{false};
+    bool m_shadowsEnabled{true};
 
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;

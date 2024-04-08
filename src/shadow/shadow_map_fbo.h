@@ -16,12 +16,12 @@ public:
 
     bool Init(unsigned int WindowWidth, unsigned int WindowHeight);
 
-    void BindForWriting(GLenum CubeFace);
+    void BindForWriting(GLenum CubeFace) const;
 
-    void BindForReading(GLenum TextureUnit);
+    void BindForReading(GLenum TextureUnit) const;
 
 private:
-    GLuint m_fbo;
-    GLuint m_shadowMap;
-    GLuint m_depth;
+    GLuint m_fbo{0};
+    GLuint m_shadowMap{0};
+    GLuint m_depth{0};
 };
