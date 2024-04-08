@@ -197,6 +197,10 @@ public:
 
             m_camera.updateInput(m_captureCursor);
             if (m_thirdPerson) {
+                // Uncomment for BANANA ROTATE
+//                m_player.forward = m_camera.forward;
+//                m_player.up = m_camera.up;
+
                 m_player.updateInput();
                 m_camera.position = m_player.position - distance * m_camera.forward;
             } else {
