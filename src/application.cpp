@@ -43,7 +43,8 @@ class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/normal/normal1.jpg"),
+              m_texture("resources/textures/mars.jpg"),
+              m_normalMap("resources/normal/mars_normal.jpg"),
               m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
               m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
@@ -237,6 +238,8 @@ public:
             glUniform1i(4, GL_TRUE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
             glUniform1i(8, GL_FALSE);
+            m_normalMap.bind(GL_TEXTURE1);
+            glUniform1i(9, 1);
             mesh.draw(shader);
 
 
@@ -254,6 +257,7 @@ public:
             glUniform1i(4, GL_FALSE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
             glUniform1i(8, GL_FALSE);
+
             mesh.draw(shader);
         }
     }
@@ -333,7 +337,7 @@ public:
 
     void update() {
         Planet sun{3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
-        Planet earth{1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
+        Planet earth{1.0f, 7.0f, 0.0f, 0.0f, 0.0f, 0.00f};
         Planet moon{0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
 
         loadCubemaps();
@@ -431,6 +435,7 @@ private:
     std::vector<GPUMesh> m_cockpit;
     std::vector<GPUMesh> m_rocket;
     Texture m_texture;
+    Texture m_normalMap;
     bool m_useMaterial{true};
 
     GLuint m_cubemapIbo;
