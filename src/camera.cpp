@@ -20,12 +20,6 @@ glm::mat4 Camera::viewMatrix() const {
     return glm::lookAt(position, position + forward, up);
 }
 
-void Camera::zoom(float z) {
-    const float zoomSpeed = 5.0f;
-    fov -= z * zoomSpeed;
-    fov = glm::max(20.0f, glm::min(90.0f, fov));
-}
-
 void Camera::rotateX(float angle) {
     const glm::vec3 horAxis = glm::cross(s_yAxis, forward);
 
@@ -41,23 +35,7 @@ void Camera::rotateY(float angle) {
 }
 
 void Camera::updateInput(bool captureCursor) {
-    constexpr float moveSpeed = 0.02f;
     constexpr float lookSpeed = 0.0015f;
-
-    glm::vec3 localMoveDelta{0};
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    if (m_pWindow->isKeyPressed(GLFW_KEY_A))
-        position -= moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_D))
-        position += moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_W))
-        position += moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_S))
-        position -= moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_R))
-        position += moveSpeed * up;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_F))
-        position -= moveSpeed * up;
 
     const glm::dvec2 cursorPos = m_pWindow->getCursorPos();
     const glm::vec2 delta = lookSpeed * glm::vec2(cursorPos - m_prevCursorPos);

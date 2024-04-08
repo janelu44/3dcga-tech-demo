@@ -1,5 +1,6 @@
 //#include "Image.h"
 #include "camera.h"
+#include "player.h"
 #include "mesh.h"
 #include "texture.h"
 #include "stb/stb_image.h"
@@ -43,12 +44,13 @@ public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
               m_texture("resources/textures/checkerboard.png"),
-              m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(1.2f, 1.1f, 0.9f)) {
+              m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
+              m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
-//            else if (action == GLFW_RELEASE)
-//                onKeyReleased(key, mods);
+            else if (action == GLFW_RELEASE)
+                onKeyReleased(key, mods);
         });
 //        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
         m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
@@ -58,7 +60,7 @@ public:
                 onMouseReleased(button, mods);
         });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
-            m_camera.zoom(offset.y);
+            distance += offset.y * -0.1f;
         });
         m_window.registerWindowResizeCallback([&](const glm::ivec2 &size) {
             glViewport(0, 0, size.x, size.y);
@@ -73,6 +75,7 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
+        m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
         loadCubemap();
 
@@ -191,8 +194,22 @@ public:
         while (!m_window.shouldClose()) {
             m_window.updateInput();
             gui();
+
             m_camera.updateInput(m_captureCursor);
-            if (!m_detachedCamera) m_lastCameraForward = m_camera.forward;
+            if (m_thirdPerson) {
+                // Uncomment for BANANA ROTATE
+//                m_player.forward = m_camera.forward;
+//                m_player.up = m_camera.up;
+
+                m_player.updateInput();
+                m_camera.position = m_player.position - distance * m_camera.forward;
+            } else {
+                m_player.forward = m_camera.forward;
+                m_player.up = m_camera.up;
+
+                m_player.updateInput();
+                m_camera.position = m_player.position;
+            }
 
             earth.revolutionProgress += earth.revolutionSpeed;
             earth.orbitProgress += earth.orbitSpeed;
@@ -296,10 +313,7 @@ public:
 
             // Render cockpit meshes
             for (GPUMesh &mesh: m_cockpit) {
-                float scale = m_thirdPerson ? 0.05f : 0.2f;
-                glm::vec3 displacement = m_thirdPerson ? glm::vec3(-0.15f, -0.1f, -0.75f) : glm::vec3(0.0f);
-
-                m_reflectionShader.bind();
+                m_defaultShader.bind();
                 glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
                 if (mesh.hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
@@ -312,93 +326,90 @@ public:
                 glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
-//                // COCKPIT PLACEHOLDER -> BANANA ROTATE (NU MERGE BINE INCA DAR NU MAI POT SA MA MAI UIT)
-//                glm::vec3 cockpitDir = glm::vec3(0, 0, -1);
-//                glm::vec3 cameraDir = glm::normalize(m_lastCameraForward);
-//
-//                float angle = glm::acos(glm::dot(cockpitDir, cameraDir));
-//                glm::vec3 rotationAxis = glm::normalize(glm::cross(cockpitDir, cameraDir));
-//
-//                glm::mat4 cockpitPos = glm::translate(glm::mat4(1.0f), m_camera.position);
-//                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
-//                glm::mat4 cockpitDisplaced = glm::translate(cockpitRot, displacement);
-//                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitDisplaced));
-//                glm::mat4 cockpitScale = glm::scale(cockpitDisplaced, glm::vec3(scale));
+                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+                glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
 
-                glm::mat4 cockpitPos = glm::translate(m_modelMatrix, displacement);
+                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
+                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+                glUniform1i(8, GL_TRUE);
+                if (!m_thirdPerson) mesh.draw(m_defaultShader);
+            }
 
-                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitPos));
-                glm::mat4 cockpitScale = glm::scale(cockpitPos, glm::vec3(scale));
+            for (GPUMesh &mesh: m_rocket) {
+                m_defaultShader.bind();
+                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                if (mesh.hasTextureCoords()) {
+                    m_texture.bind(GL_TEXTURE0);
+                    glUniform1i(3, 0);
+                    glUniform1i(4, GL_TRUE);
+                } else {
+                    glUniform1i(4, GL_FALSE);
+                }
+                glm::vec3 lightPos = glm::vec3(0.0f);
+                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+                glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
+                glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+                float angle = glm::acos(glm::dot(rocketFwd, m_player.forward));
+                glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, m_player.forward));
+
+                glm::mat4 cockpitPos = glm::translate(m_modelMatrix, m_player.position);
+                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
+                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
+                glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.05f));
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
                 glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
                 glUniform1i(8, GL_TRUE);
-                mesh.draw(m_reflectionShader);
+                if (m_thirdPerson) mesh.draw(m_defaultShader);
             }
 
             m_window.swapBuffers();
         }
     }
 
-    // In here you can handle key presses
-    // key - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__keys.html
-    // mods - Any modifier keys pressed, like shift or control
     void onKeyPressed(int key, int mods) {
-//        std::cout << "Key pressed: " << key << std::endl;
         if (key == GLFW_KEY_C) {
             m_captureCursor = !m_captureCursor;
             m_window.setMouseCapture(m_captureCursor);
         }
         if (key == GLFW_KEY_V) {
             m_thirdPerson = !m_thirdPerson;
-            if (m_thirdPerson) m_camera.position -= glm::vec3(-0.15f, -0.1f, -0.75f);
-            else m_camera.position += glm::vec3(-0.15f, -0.1f, -0.75f);
         }
 
     }
 
-    // In here you can handle key releases
-    // key - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__keys.html
-    // mods - Any modifier keys pressed, like shift or control
     void onKeyReleased(int key, int mods) {
-        std::cout << "Key released: " << key << std::endl;
     }
 
-    // If the mouse is moved this function will be called with the x, y screen-coordinates of the mouse
     void onMouseMove(const glm::dvec2 &cursorPos) {
-        std::cout << "Mouse at position: " << cursorPos.x << " " << cursorPos.y << std::endl;
     }
 
-    // If one of the mouse buttons is pressed this function will be called
-    // button - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__buttons.html
-    // mods - Any modifier buttons pressed
     void onMouseClicked(int button, int mods) {
-//        std::cout << "Pressed mouse button: " << button << std::endl;
-        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-            m_detachedCamera = true;
-        }
+//        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+//            m_detachedCamera = true;
+//        }
     }
 
-    // If one of the mouse buttons is released this function will be called
-    // button - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__buttons.html
-    // mods - Any modifier buttons pressed
     void onMouseReleased(int button, int mods) {
-//        std::cout << "Released mouse button: " << button << std::endl;
-        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-            m_detachedCamera = false;
-        }
+//        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+//            m_detachedCamera = false;
+//        }
     }
 
 private:
     Window m_window;
     Camera m_camera;
+    Player m_player;
 
     // Camera settings
     bool m_captureCursor{false};
     bool m_thirdPerson{false};
-    bool m_detachedCamera{false};
-    glm::vec3 m_lastCameraForward{0.0f, 0.0f, -1.0f};
+    float distance{1.0f};
+//    bool m_detachedCamera{false};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -408,6 +419,7 @@ private:
 
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;
+    std::vector<GPUMesh> m_rocket;
     Texture m_texture;
     bool m_useMaterial{true};
 

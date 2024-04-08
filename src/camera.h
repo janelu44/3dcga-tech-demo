@@ -13,7 +13,6 @@ public:
 
     void updateInput(bool captureCursor = false);
     glm::mat4 viewMatrix() const;
-    void zoom(float z);
     void rotateX(float angle);
     void rotateY(float angle);
 
