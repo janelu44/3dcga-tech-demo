@@ -4,6 +4,8 @@
 #include "mesh.h"
 #include "texture.h"
 #include "stb/stb_image.h"
+#include "shadow/shadow_directions.h"
+#include "shadow/shadow_map_fbo.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -70,6 +72,7 @@ public:
                     m_camera.zNear,
                     m_camera.zFar
             );
+            m_shadowMapFBO.Init(static_cast<unsigned int>(size.x), static_cast<unsigned int>(size.y));
         });
         m_window.setMouseCapture(m_captureCursor);
 
@@ -77,9 +80,16 @@ public:
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
+        m_shadowMapFBO.Init(1024, 1024);
+
         loadCubemap();
 
         try {
+            ShaderBuilder testBuilder;
+            testBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            testBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl");
+            m_testShader = testBuilder.build();
+
             ShaderBuilder defaultBuilder;
             defaultBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
             defaultBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl");
@@ -87,6 +97,7 @@ public:
 
             ShaderBuilder shadowBuilder;
             shadowBuilder.addStage(GL_VERTEX_SHADER, "shaders/shadow_vert.glsl");
+            shadowBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shadow_frag.glsl");
             m_shadowShader = shadowBuilder.build();
 
             ShaderBuilder cubemapBuilder;
@@ -159,12 +170,10 @@ public:
         GLuint vbo;
         glCreateBuffers(1, &vbo);
         glNamedBufferStorage(vbo, static_cast<GLsizeiptr>(skyboxVertices.size() * sizeof(glm::vec3)), skyboxVertices.data(), 0);
-        m_cubemapVbo = vbo;
 
         GLuint ibo;
         glCreateBuffers(1, &ibo);
         glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)),skyboxTriangles.data(), 0);
-        m_cubemapIbo = ibo;
 
         GLuint vao;
         glCreateVertexArrays(1, &vao);
@@ -195,6 +204,30 @@ public:
         glDepthMask(GL_TRUE);
     }
 
+    void renderShadowMap() {
+        glCullFace(GL_FRONT);
+
+        glm::mat4 shadowProjectionMatrix = glm::perspective(
+                glm::radians(90.0f),
+                m_window.getAspectRatio(),
+                m_camera.zNear,
+                m_camera.zFar
+        );
+
+        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
+
+        for (SDir dir : ShadowDir::directions) {
+            m_shadowMapFBO.BindForWriting(dir.cubemapFace);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+            glm::mat4 m_lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
+            glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
+
+            renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
+            renderRocket(m_shadowShader, m_lightSpaceMatrix);
+        }
+    }
+
     void updateSolarSystem() {
         earth.revolutionProgress += earth.revolutionSpeed;
         earth.orbitProgress += earth.orbitSpeed;
@@ -203,9 +236,7 @@ public:
         moon.orbitProgress += moon.orbitSpeed;
     }
 
-    void renderSolarSystem(const Shader& shader) {
-        glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
-
+    void renderSolarSystem(const Shader& shader, glm::mat4 mvpMatrix, bool renderSun = true) {
         for (GPUMesh &mesh: m_meshes) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -230,7 +261,7 @@ public:
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(sunNormal));
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.0f)));
             glUniform1i(8, GL_TRUE);
-            mesh.draw(shader);
+            if (renderSun) mesh.draw(shader);
 
             // EARTH
             glm::mat4 earthPos = sunPos;
@@ -265,8 +296,7 @@ public:
         }
     }
 
-    void renderRocket(const Shader& shader) {
-        glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+    void renderRocket(const Shader& shader, glm::mat4 mvpMatrix) {
         glm::vec3 lightPos = glm::vec3(0.0f);
 
         for (GPUMesh &mesh: m_cockpit) {
@@ -369,6 +399,13 @@ public:
                     m_camera.zFar
             );
             m_viewMatrix = m_camera.viewMatrix();
+            glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+
+            if(shadowsEnabled) renderShadowMap();
+
+            // Set Framebuffer settings
+            glCullFace(GL_BACK);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             // Clear the screen
             glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
@@ -377,8 +414,8 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_defaultShader);
-            renderRocket(m_defaultShader);
+            renderSolarSystem(m_defaultShader, mvpMatrix);
+            renderRocket(m_defaultShader, mvpMatrix);
 
             m_window.swapBuffers();
         }
@@ -392,7 +429,9 @@ public:
         if (key == GLFW_KEY_V) {
             m_thirdPerson = !m_thirdPerson;
         }
-
+        if (key == GLFW_KEY_H) {
+            shadowsEnabled = !shadowsEnabled;
+        }
     }
 
     void onKeyReleased(int key, int mods) {
@@ -424,10 +463,15 @@ private:
     float distance{1.0f};
 
     // Shader for default rendering and for depth rendering
+    Shader m_testShader;
     Shader m_defaultShader;
     Shader m_shadowShader;
     Shader m_cubemapShader;
     Shader m_reflectionShader;
+
+    // Shadow Mapping
+    ShadowMapFBO m_shadowMapFBO;
+    bool shadowsEnabled{false};
 
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;
@@ -435,10 +479,7 @@ private:
     Texture m_texture;
     bool m_useMaterial{true};
 
-    GLuint m_texCubemap;
-    GLuint m_cubemapIbo;
-    GLuint m_cubemapVbo;
-    GLuint m_cubemapVao;
+    GLuint m_texCubemap, m_cubemapVao;
     std::vector<std::string> m_cubemapFaces
         {
                 "resources/textures/skybox/right.jpg",
