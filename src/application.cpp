@@ -298,6 +298,9 @@ public:
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
+                m_texture.bind(GL_TEXTURE0);
+                glUniform1i(3, 0);
+                glUniform1i(4, GL_TRUE);
                 glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
                 glUniform1i(8, GL_FALSE);
                 mesh.draw(m_reflectionShader);

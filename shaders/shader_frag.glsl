@@ -39,7 +39,7 @@ void main()
     const vec3 normal = normalize(fragNormal);
 
     if (hasTexCoords) {
-        fragColor = vec4(texture(texColor, fragTexCoord).rgb, 1);
+        fragColor = texture(texColor, fragTexCoord);
     } else {
         fragColor = vec4(lambert(ignoreBehind) * forceColor + forceColor * 0.1f, 1);
     }
