@@ -3,6 +3,7 @@
 #include "player.h"
 #include "mesh.h"
 #include "texture.h"
+#include "stb/stb_image.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -61,7 +62,7 @@ public:
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             distance += offset.y * -0.1f;
         });
-        m_window.registerWindowResizeCallback([&](const glm::ivec2& size) {
+        m_window.registerWindowResizeCallback([&](const glm::ivec2 &size) {
             glViewport(0, 0, size.x, size.y);
             m_projectionMatrix = glm::perspective(
                     glm::radians(m_camera.fov),
@@ -76,6 +77,8 @@ public:
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
+        loadCubemap();
+
         try {
             ShaderBuilder defaultBuilder;
             defaultBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
@@ -85,9 +88,90 @@ public:
             ShaderBuilder shadowBuilder;
             shadowBuilder.addStage(GL_VERTEX_SHADER, "shaders/shadow_vert.glsl");
             m_shadowShader = shadowBuilder.build();
+
+            ShaderBuilder cubemapBuilder;
+            cubemapBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            cubemapBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/cubemap_frag.glsl");
+            m_cubemapShader = cubemapBuilder.build();
+
+            ShaderBuilder reflectionBuilder;
+            reflectionBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            reflectionBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/reflection_frag.glsl");
+            m_reflectionShader = reflectionBuilder.build();
+
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
+    }
+
+    void loadCubemap() {
+        GLuint texCubemap;
+        glGenTextures(1, &texCubemap);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
+
+        int width, height, nrChannels;
+        unsigned char *data;
+        for (unsigned int i = 0; i < m_cubemapFaces.size(); i++) {
+            data = stbi_load(m_cubemapFaces[i].c_str(), &width, &height, &nrChannels, 0);
+            glTexImage2D(
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+        }
+
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        m_texCubemap = texCubemap;
+
+        std::vector<glm::vec3> skyboxVertices{
+                {-1.0f, -1.0f, -1.0f},
+                {1.0f, -1.0f, -1.0f},
+                {1.0f, 1.0f, -1.0f},
+                {-1.0f, 1.0f, -1.0f},
+                {-1.0f, -1.0f, 1.0f},
+                {1.0f, -1.0f, 1.0f},
+                {1.0f, 1.0f, 1.0f},
+                {-1.0f, 1.0f, 1.0f},
+        };
+
+        std::vector<glm::uvec3> skyboxTriangles{
+                {0, 1, 2},
+                {2, 3, 0},
+                {1, 5, 6},
+                {6, 2, 1},
+                {5, 4, 7},
+                {7, 6, 5},
+                {4, 0, 3},
+                {3, 7, 4},
+                {3, 2, 6},
+                {6, 7, 3},
+                {0, 4, 5},
+                {5, 1, 0}
+        };
+        GLuint vbo;
+        glCreateBuffers(1, &vbo);
+        glNamedBufferStorage(vbo, static_cast<GLsizeiptr>(skyboxVertices.size() * sizeof(glm::vec3)), skyboxVertices.data(), 0);
+        m_cubemapVbo = vbo;
+
+        GLuint ibo;
+        glCreateBuffers(1, &ibo);
+        glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)),skyboxTriangles.data(), 0);
+        m_cubemapIbo = ibo;
+
+        GLuint vao;
+        glCreateVertexArrays(1, &vao);
+        glVertexArrayElementBuffer(vao, ibo);
+
+        glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(glm::vec3));
+        glEnableVertexArrayAttrib(vao, 0);
+        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribBinding(vao, 0, 0);
+
+        m_cubemapVao = vao;
     }
 
     void gui() {
@@ -104,6 +188,8 @@ public:
         Planet sun{3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
         Planet earth{1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
         Planet moon{0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
+
+        loadCubemap();
 
         while (!m_window.shouldClose()) {
             m_window.updateInput();
@@ -140,9 +226,26 @@ public:
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glEnable(GL_DEPTH_TEST);
 
-            const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+            glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
+
+            glDepthMask(GL_FALSE);
+            m_cubemapShader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
+            glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
+
+            glBindVertexArray(m_cubemapVao);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
+            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
+            glDepthMask(GL_TRUE);
+
+
+            mvpMatrix = m_projectionMatrix * m_viewMatrix;
+
+//            m_window.swapBuffers();
+//            continue;
 
             // Render meshes
             for (GPUMesh &mesh: m_meshes) {
@@ -255,6 +358,7 @@ public:
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+                glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
                 glUniform1i(8, GL_TRUE);
                 if (m_thirdPerson) mesh.draw(m_defaultShader);
             }
@@ -298,7 +402,7 @@ private:
     Player m_player;
 
     // Camera settings
-    bool m_captureCursor{true};
+    bool m_captureCursor{false};
     bool m_thirdPerson{false};
     float distance{1.0f};
 //    bool m_detachedCamera{false};
@@ -306,12 +410,28 @@ private:
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
     Shader m_shadowShader;
+    Shader m_cubemapShader;
+    Shader m_reflectionShader;
 
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;
     std::vector<GPUMesh> m_rocket;
     Texture m_texture;
     bool m_useMaterial{true};
+
+    GLuint m_texCubemap;
+    GLuint m_cubemapIbo;
+    GLuint m_cubemapVbo;
+    GLuint m_cubemapVao;
+    std::vector<std::string> m_cubemapFaces
+            {
+                    "resources/textures/skybox/right.jpg",
+                    "resources/textures/skybox/left.jpg",
+                    "resources/textures/skybox/top.jpg",
+                    "resources/textures/skybox/bottom.jpg",
+                    "resources/textures/skybox/front.jpg",
+                    "resources/textures/skybox/back.jpg"
+            };
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);

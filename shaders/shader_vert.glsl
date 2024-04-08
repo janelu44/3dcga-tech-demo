@@ -21,6 +21,7 @@ out vec3 fragKs;
 out float fragShininess;
 out float fragRoughness;
 out vec2 fragTexCoord;
+out vec3 fragCubemapCoord;
 
 void main()
 {
@@ -31,6 +32,7 @@ void main()
     fragShininess = shininess;
     fragRoughness = roughness;
     fragTexCoord = texCoord;
+    fragCubemapCoord = normalize(fragPos);
 
     gl_Position = mvpMatrix * vec4(fragPos, 1);
 }
