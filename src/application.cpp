@@ -238,7 +238,7 @@ public:
             m_cubemapShader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
-            glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
 
             glBindVertexArray(m_cubemapVao);
             glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
@@ -264,7 +264,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 // SUN
@@ -323,7 +323,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
@@ -346,7 +346,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
