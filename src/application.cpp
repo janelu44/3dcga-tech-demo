@@ -105,27 +105,30 @@ public:
     }
 
     void loadCubemap() {
-        GLuint texCubemap;
-        glGenTextures(1, &texCubemap);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
+        for (int x = 0; x < m_skyboxImages.size(); x++) {
+            GLuint texCubemap;
+            glGenTextures(1, &texCubemap);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
 
-        int width, height, nrChannels;
-        unsigned char *data;
-        for (unsigned int i = 0; i < m_cubemapFaces.size(); i++) {
-            data = stbi_load(m_cubemapFaces[i].c_str(), &width, &height, &nrChannels, 0);
-            glTexImage2D(
-                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                    0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-            );
+            int width, height, nrChannels;
+            unsigned char *data;
+            for (unsigned int i = 0; i < m_skyboxImages[x].size(); i++) {
+                data = stbi_load(m_skyboxImages[x][i].c_str(), &width, &height, &nrChannels, 0);
+                glTexImage2D(
+                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+                );
+            }
+
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+            m_skyboxes.push_back(texCubemap);
         }
 
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-        m_texCubemap = texCubemap;
 
         std::vector<glm::vec3> skyboxVertices{
                 {-1.0f, -1.0f, -1.0f},
@@ -174,13 +177,18 @@ public:
         m_cubemapVao = vao;
     }
 
+    struct {
+        const float sameLineOffset = 100.0f;
+        int skybox = 0;
+    } guiValues;
+
     void gui() {
-        int dummyInteger = 0;
-        ImGui::Begin("Window");
-        ImGui::InputInt("This is an integer input",
-                        &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
-        ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
-        ImGui::Checkbox("Use material if no texture", &m_useMaterial);
+        ImGui::Begin("Debug");
+        const char *skyboxOptions[] = {"Space", "Lake"};
+        ImGui::Text("Skybox");
+        ImGui::SameLine(guiValues.sameLineOffset);
+        ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+
         ImGui::End();
     }
 
@@ -198,8 +206,8 @@ public:
             m_camera.updateInput(m_captureCursor);
             if (m_thirdPerson) {
                 // Uncomment for BANANA ROTATE
-//                m_player.forward = m_camera.forward;
-//                m_player.up = m_camera.up;
+                m_player.forward = m_camera.forward;
+                m_player.up = m_camera.up;
 
                 m_player.updateInput();
                 m_camera.position = m_player.position - distance * m_camera.forward;
@@ -241,7 +249,7 @@ public:
             glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
 
             glBindVertexArray(m_cubemapVao);
-            glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
             glDepthMask(GL_TRUE);
 
@@ -292,8 +300,7 @@ public:
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
                 glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
                 glUniform1i(8, GL_FALSE);
-                mesh.draw(m_defaultShader);
-
+                mesh.draw(m_reflectionShader);
 
                 // MOON
                 glm::mat4 moonPos = earthPos;
@@ -362,7 +369,6 @@ public:
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-                glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
                 glUniform1i(8, GL_TRUE);
                 if (m_thirdPerson) mesh.draw(m_defaultShader);
             }
@@ -423,11 +429,19 @@ private:
     Texture m_texture;
     bool m_useMaterial{true};
 
-    GLuint m_texCubemap;
     GLuint m_cubemapIbo;
     GLuint m_cubemapVbo;
     GLuint m_cubemapVao;
-    std::vector<std::string> m_cubemapFaces
+
+    std::vector<std::vector<std::string>> m_skyboxImages {
+            {
+                    "resources/textures/space/right.jpg",
+                    "resources/textures/space/left.jpg",
+                    "resources/textures/space/top.jpg",
+                    "resources/textures/space/bottom.jpg",
+                    "resources/textures/space/front.jpg",
+                    "resources/textures/space/back.jpg"
+            },
             {
                     "resources/textures/skybox/right.jpg",
                     "resources/textures/skybox/left.jpg",
@@ -435,7 +449,10 @@ private:
                     "resources/textures/skybox/bottom.jpg",
                     "resources/textures/skybox/front.jpg",
                     "resources/textures/skybox/back.jpg"
-            };
+            },
+    };
+
+    std::vector<GLuint> m_skyboxes;
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
