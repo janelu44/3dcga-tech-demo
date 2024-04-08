@@ -197,7 +197,7 @@ public:
                 glm::vec3 displacement = m_thirdPerson ? glm::vec3(-0.15f, -0.1f, -0.75f) : glm::vec3(0.0f);
 
                 m_defaultShader.bind();
-                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
                 if (mesh.hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
                     glUniform1i(3, 0);
@@ -209,18 +209,23 @@ public:
                 glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
-                // COCKPIT PLACEHOLDER -> BANANA ROTATE (NU MERGE BINE INCA DAR NU MAI POT SA MA MAI UIT)
-                glm::vec3 cockpitDir = glm::vec3(0, 0, -1);
-                glm::vec3 cameraDir = glm::normalize(m_lastCameraForward);
+//                // COCKPIT PLACEHOLDER -> BANANA ROTATE (NU MERGE BINE INCA DAR NU MAI POT SA MA MAI UIT)
+//                glm::vec3 cockpitDir = glm::vec3(0, 0, -1);
+//                glm::vec3 cameraDir = glm::normalize(m_lastCameraForward);
+//
+//                float angle = glm::acos(glm::dot(cockpitDir, cameraDir));
+//                glm::vec3 rotationAxis = glm::normalize(glm::cross(cockpitDir, cameraDir));
+//
+//                glm::mat4 cockpitPos = glm::translate(glm::mat4(1.0f), m_camera.position);
+//                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
+//                glm::mat4 cockpitDisplaced = glm::translate(cockpitRot, displacement);
+//                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitDisplaced));
+//                glm::mat4 cockpitScale = glm::scale(cockpitDisplaced, glm::vec3(scale));
 
-                float angle = glm::acos(glm::dot(cockpitDir, cameraDir));
-                glm::vec3 rotationAxis = glm::normalize(glm::cross(cockpitDir, cameraDir));
+                glm::mat4 cockpitPos = glm::translate(m_modelMatrix, displacement);
 
-                glm::mat4 cockpitPos = glm::translate(glm::mat4(1.0f), m_camera.position);
-                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
-                glm::mat4 cockpitDisplaced = glm::translate(cockpitRot, displacement);
-                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitDisplaced));
-                glm::mat4 cockpitScale = glm::scale(cockpitDisplaced, glm::vec3(scale));
+                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitPos));
+                glm::mat4 cockpitScale = glm::scale(cockpitPos, glm::vec3(scale));
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
