@@ -174,6 +174,150 @@ public:
         m_cubemapVao = vao;
     }
 
+    void renderCubeMap(const Shader& shader) {
+        glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
+        // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
+        // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
+
+        glDepthMask(GL_FALSE);
+        shader.bind();
+        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
+        glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
+
+        glBindVertexArray(m_cubemapVao);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
+        glDepthMask(GL_TRUE);
+    }
+
+    void renderSolarSystem(const Shader& shader, Planet& sun, Planet& earth, Planet& moon) {
+        earth.revolutionProgress += earth.revolutionSpeed;
+        earth.orbitProgress += earth.orbitSpeed;
+
+        moon.revolutionProgress += moon.revolutionSpeed;
+        moon.orbitProgress += moon.orbitSpeed;
+
+        glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+
+        for (GPUMesh &mesh: m_meshes) {
+
+            shader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            if (mesh.hasTextureCoords()) {
+                m_texture.bind(GL_TEXTURE0);
+                glUniform1i(3, 0);
+                glUniform1i(4, GL_TRUE);
+            } else {
+                glUniform1i(4, GL_FALSE);
+            }
+            glm::vec3 lightPos = glm::vec3(0.0f);
+            glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+            glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+            // SUN
+            glm::mat4 sunPos = glm::mat4(1.0f);
+            glm::mat4 sunRot = glm::rotate(sunPos, glm::radians(sun.revolutionProgress), glm::vec3(0, 1, 0));
+            glm::mat3 sunNormal = glm::inverseTranspose(glm::mat3(sunRot));
+            glm::mat4 sunScale = glm::scale(sunRot, glm::vec3(sun.size));
+
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(sunScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(sunNormal));
+            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.0f)));
+            glUniform1i(8, GL_TRUE);
+            mesh.draw(shader);
+
+            // EARTH
+            glm::mat4 earthPos = sunPos;
+            earthPos = glm::rotate(earthPos, glm::radians(earth.orbitProgress), glm::vec3(0, 1, 0));
+            earthPos = glm::translate(earthPos, glm::vec3(earth.orbitSize, 0, 0));
+            glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress),
+                                             glm::vec3(0, 1, 0));
+            glm::mat3 earthNormal = glm::inverseTranspose(glm::mat3(earthRot));
+            glm::mat4 earthScale = glm::scale(earthRot, glm::vec3(earth.size));
+
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
+            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
+            glUniform1i(8, GL_FALSE);
+            mesh.draw(shader);
+
+
+            // MOON
+            glm::mat4 moonPos = earthPos;
+            moonPos = glm::rotate(moonPos, glm::radians(moon.orbitProgress), glm::vec3(0, 1, 0));
+            moonPos = glm::translate(moonPos, glm::vec3(moon.orbitSize, 0, 0));
+            glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress),
+                                            glm::vec3(0, 1, 0));
+            glm::mat4 moonNormal = glm::inverseTranspose(glm::mat3(moonRot));
+            glm::mat4 moonScale = glm::scale(moonRot, glm::vec3(moon.size));
+
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(moonScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(moonNormal));
+            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
+            glUniform1i(8, GL_FALSE);
+            mesh.draw(shader);
+        }
+    }
+
+    void renderRocket(const Shader& shader) {
+        glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+        glm::vec3 lightPos = glm::vec3(0.0f);
+
+        for (GPUMesh &mesh: m_cockpit) {
+            shader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
+            if (mesh.hasTextureCoords()) {
+                m_texture.bind(GL_TEXTURE0);
+                glUniform1i(3, 0);
+                glUniform1i(4, GL_TRUE);
+            } else {
+                glUniform1i(4, GL_FALSE);
+            }
+            glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+            glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+            glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+            glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
+
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+            glUniform1i(8, GL_TRUE);
+            if (!m_thirdPerson) mesh.draw(shader);
+        }
+
+        for (GPUMesh &mesh: m_rocket) {
+            shader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            if (mesh.hasTextureCoords()) {
+                m_texture.bind(GL_TEXTURE0);
+                glUniform1i(3, 0);
+                glUniform1i(4, GL_TRUE);
+            } else {
+                glUniform1i(4, GL_FALSE);
+            }
+            glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+            glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+            glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            float angle = glm::acos(glm::dot(rocketFwd, m_player.forward));
+            glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, m_player.forward));
+
+            glm::mat4 cockpitPos = glm::translate(m_modelMatrix, m_player.position);
+            glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
+            glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
+            glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.05f));
+
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+            glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
+            glUniform1i(8, GL_TRUE);
+            if (m_thirdPerson) mesh.draw(shader);
+        }
+    }
+
     void gui() {
         int dummyInteger = 0;
         ImGui::Begin("Window");
@@ -195,11 +339,12 @@ public:
             m_window.updateInput();
             gui();
 
+            // Update camera and player
             m_camera.updateInput(m_captureCursor);
             if (m_thirdPerson) {
                 // Uncomment for BANANA ROTATE
-//                m_player.forward = m_camera.forward;
-//                m_player.up = m_camera.up;
+                m_player.forward = m_camera.forward;
+                m_player.up = m_camera.up;
 
                 m_player.updateInput();
                 m_camera.position = m_player.position - distance * m_camera.forward;
@@ -211,12 +356,7 @@ public:
                 m_camera.position = m_player.position;
             }
 
-            earth.revolutionProgress += earth.revolutionSpeed;
-            earth.orbitProgress += earth.orbitSpeed;
-
-            moon.revolutionProgress += moon.revolutionSpeed;
-            moon.orbitProgress += moon.orbitSpeed;
-
+            // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
                     glm::radians(m_camera.fov),
                     m_window.getAspectRatio(),
@@ -230,142 +370,10 @@ public:
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glEnable(GL_DEPTH_TEST);
 
-            glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
-            // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-            // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-
-            glDepthMask(GL_FALSE);
-            m_cubemapShader.bind();
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
-            glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
-
-            glBindVertexArray(m_cubemapVao);
-            glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
-            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
-            glDepthMask(GL_TRUE);
-
-
-            mvpMatrix = m_projectionMatrix * m_viewMatrix;
-
-//            m_window.swapBuffers();
-//            continue;
-
-            // Render meshes
-            for (GPUMesh &mesh: m_meshes) {
-
-                m_defaultShader.bind();
-                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-                if (mesh.hasTextureCoords()) {
-                    m_texture.bind(GL_TEXTURE0);
-                    glUniform1i(3, 0);
-                    glUniform1i(4, GL_TRUE);
-                } else {
-                    glUniform1i(4, GL_FALSE);
-                }
-                glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
-                glUniform3fv(6, 1, glm::value_ptr(lightPos));
-
-                // SUN
-                glm::mat4 sunPos = glm::mat4(1.0f);
-                glm::mat4 sunRot = glm::rotate(sunPos, glm::radians(sun.revolutionProgress), glm::vec3(0, 1, 0));
-                glm::mat3 sunNormal = glm::inverseTranspose(glm::mat3(sunRot));
-                glm::mat4 sunScale = glm::scale(sunRot, glm::vec3(sun.size));
-
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(sunScale));
-                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(sunNormal));
-                glUniform3fv(7, 1, glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.0f)));
-                glUniform1i(8, GL_TRUE);
-                mesh.draw(m_defaultShader);
-
-                // EARTH
-                glm::mat4 earthPos = sunPos;
-                earthPos = glm::rotate(earthPos, glm::radians(earth.orbitProgress), glm::vec3(0, 1, 0));
-                earthPos = glm::translate(earthPos, glm::vec3(earth.orbitSize, 0, 0));
-                glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress),
-                                                 glm::vec3(0, 1, 0));
-                glm::mat3 earthNormal = glm::inverseTranspose(glm::mat3(earthRot));
-                glm::mat4 earthScale = glm::scale(earthRot, glm::vec3(earth.size));
-
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
-                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
-                glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
-                glUniform1i(8, GL_FALSE);
-                mesh.draw(m_defaultShader);
-
-
-                // MOON
-                glm::mat4 moonPos = earthPos;
-                moonPos = glm::rotate(moonPos, glm::radians(moon.orbitProgress), glm::vec3(0, 1, 0));
-                moonPos = glm::translate(moonPos, glm::vec3(moon.orbitSize, 0, 0));
-                glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress),
-                                                glm::vec3(0, 1, 0));
-                glm::mat4 moonNormal = glm::inverseTranspose(glm::mat3(moonRot));
-                glm::mat4 moonScale = glm::scale(moonRot, glm::vec3(moon.size));
-
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(moonScale));
-                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(moonNormal));
-                glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
-                glUniform1i(8, GL_FALSE);
-                mesh.draw(m_defaultShader);
-            }
-
-            // Render cockpit meshes
-            for (GPUMesh &mesh: m_cockpit) {
-                m_defaultShader.bind();
-                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
-                if (mesh.hasTextureCoords()) {
-                    m_texture.bind(GL_TEXTURE0);
-                    glUniform1i(3, 0);
-                    glUniform1i(4, GL_TRUE);
-                } else {
-                    glUniform1i(4, GL_FALSE);
-                }
-                glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
-                glUniform3fv(6, 1, glm::value_ptr(lightPos));
-
-                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
-                glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
-
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
-                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-                glUniform1i(8, GL_TRUE);
-                if (!m_thirdPerson) mesh.draw(m_defaultShader);
-            }
-
-            for (GPUMesh &mesh: m_rocket) {
-                m_defaultShader.bind();
-                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-                if (mesh.hasTextureCoords()) {
-                    m_texture.bind(GL_TEXTURE0);
-                    glUniform1i(3, 0);
-                    glUniform1i(4, GL_TRUE);
-                } else {
-                    glUniform1i(4, GL_FALSE);
-                }
-                glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
-                glUniform3fv(6, 1, glm::value_ptr(lightPos));
-
-                glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
-                glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
-
-                float angle = glm::acos(glm::dot(rocketFwd, m_player.forward));
-                glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, m_player.forward));
-
-                glm::mat4 cockpitPos = glm::translate(m_modelMatrix, m_player.position);
-                glm::mat4 cockpitRot = glm::rotate(cockpitPos, angle, rotationAxis);
-                glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
-                glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.05f));
-
-                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
-                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-                glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
-                glUniform1i(8, GL_TRUE);
-                if (m_thirdPerson) mesh.draw(m_defaultShader);
-            }
+            // Renders
+            renderCubeMap(m_cubemapShader);
+            renderSolarSystem(m_defaultShader, sun, earth, moon);
+            renderRocket(m_defaultShader);
 
             m_window.swapBuffers();
         }
@@ -406,10 +414,9 @@ private:
     Player m_player;
 
     // Camera settings
-    bool m_captureCursor{false};
+    bool m_captureCursor{true};
     bool m_thirdPerson{false};
     float distance{1.0f};
-//    bool m_detachedCamera{false};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -428,14 +435,14 @@ private:
     GLuint m_cubemapVbo;
     GLuint m_cubemapVao;
     std::vector<std::string> m_cubemapFaces
-            {
-                    "resources/textures/skybox/right.jpg",
-                    "resources/textures/skybox/left.jpg",
-                    "resources/textures/skybox/top.jpg",
-                    "resources/textures/skybox/bottom.jpg",
-                    "resources/textures/skybox/front.jpg",
-                    "resources/textures/skybox/back.jpg"
-            };
+        {
+                "resources/textures/skybox/right.jpg",
+                "resources/textures/skybox/left.jpg",
+                "resources/textures/skybox/top.jpg",
+                "resources/textures/skybox/bottom.jpg",
+                "resources/textures/skybox/front.jpg",
+                "resources/textures/skybox/back.jpg"
+        };
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
