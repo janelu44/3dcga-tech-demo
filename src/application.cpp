@@ -43,7 +43,7 @@ class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/textures/checkerboard.png"),
+              m_texture("resources/normal/normal1.jpg"),
               m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
               m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
@@ -205,13 +205,6 @@ public:
 
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            if (mesh.hasTextureCoords()) {
-                m_texture.bind(GL_TEXTURE0);
-                glUniform1i(3, 0);
-                glUniform1i(4, GL_TRUE);
-            } else {
-                glUniform1i(4, GL_FALSE);
-            }
             glm::vec3 lightPos = glm::vec3(0.0f);
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
@@ -239,6 +232,9 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
+            m_texture.bind(GL_TEXTURE0);
+            glUniform1i(3, 0);
+            glUniform1i(4, GL_TRUE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
             glUniform1i(8, GL_FALSE);
             mesh.draw(shader);
@@ -255,6 +251,7 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(moonScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(moonNormal));
+            glUniform1i(4, GL_FALSE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
             glUniform1i(8, GL_FALSE);
             mesh.draw(shader);

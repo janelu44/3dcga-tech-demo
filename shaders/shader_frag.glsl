@@ -23,6 +23,12 @@ float lambert(bool ignoreBehind) {
     return max(l, 0.0);
 }
 
+float lambertWithBump() {
+    float l = dot(texture(texColor, fragTexCoord).xyz, normalize(lightPos - fragPos));
+    return max(l, 0.0);
+}
+
+
 float blinnPhong(bool ignoreBehind) {
     vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
     vec3 N = normalize(fragNormal);
@@ -40,6 +46,7 @@ void main()
 
     if (hasTexCoords) {
         fragColor = texture(texColor, fragTexCoord);
+        fragColor = vec4(lambertWithBump() * forceColor, 1);
     } else {
         fragColor = vec4(lambert(ignoreBehind) * forceColor + forceColor * 0.1f, 1);
     }
