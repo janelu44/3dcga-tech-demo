@@ -15,6 +15,7 @@ add_executable(FinalProject
 	"src/camera.cpp"
 	"src/mesh.cpp"
     "src/texture.cpp"
+	"src/player.cpp"
 )
 target_compile_features(FinalProject PRIVATE cxx_std_20)
 target_link_libraries(FinalProject PRIVATE CGFramework)
