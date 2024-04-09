@@ -481,9 +481,9 @@ public:
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             m_detachedCamera = false;
             if (m_thirdPerson)
-                m_thirdCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 1000.0f);
+                m_thirdCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 100.0f);
             else
-                m_firstCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 1000.0f);
+                m_firstCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 100.0f);
         }
     }
 

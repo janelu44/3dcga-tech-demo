@@ -63,7 +63,7 @@ void Camera::update(bool captureCursor, long long currentTime) {
 
     if (ImGui::GetIO().WantCaptureMouse) return;
 
-    if (captureCursor) {
+    if (captureCursor && !moveToTarget) {
         if (delta.x != 0.0f)
             rotateY(-delta.x);
         if (delta.y != 0.0f)
