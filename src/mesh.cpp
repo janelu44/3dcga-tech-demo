@@ -40,30 +40,27 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
     // See definition of Vertex in <framework/mesh.h>
     // We bind the vertex buffer to slot 0 of the VAO and tell the VBO how large each vertex is (stride).
     glVertexArrayVertexBuffer(m_vao, 0, m_vbo, 0, sizeof(Vertex));
-    // Tell OpenGL that we will be using vertex attributes 0, 1 and 2.
-    glEnableVertexArrayAttrib(m_vao, 0);
-    glEnableVertexArrayAttrib(m_vao, 1);
-    glEnableVertexArrayAttrib(m_vao, 2);
-    glEnableVertexArrayAttrib(m_vao, 3);
-    glEnableVertexArrayAttrib(m_vao, 4);
-    glEnableVertexArrayAttrib(m_vao, 5);
-    glEnableVertexArrayAttrib(m_vao, 6);
+    // Tell OpenGL that we will be using vertex attributes 0 - nAttributes
+    int nAttributes = 9;
+    for (int i = 0; i < nAttributes; i++) {
+        glEnableVertexArrayAttrib(m_vao, i);
+    }
     // We tell OpenGL what each vertex looks like and how they are mapped to the shader (location = ...).
     glVertexArrayAttribFormat(m_vao, 0, 3, GL_FLOAT, 0, offsetof(Vertex, position));
     glVertexArrayAttribFormat(m_vao, 1, 3, GL_FLOAT, false, offsetof(Vertex, normal));
-    glVertexArrayAttribFormat(m_vao, 2, 3, GL_FLOAT, false, offsetof(Vertex, kd));
-    glVertexArrayAttribFormat(m_vao, 3, 3, GL_FLOAT, false, offsetof(Vertex, ks));
-    glVertexArrayAttribFormat(m_vao, 4, 1, GL_FLOAT, false, offsetof(Vertex, shininess));
-    glVertexArrayAttribFormat(m_vao, 5, 1, GL_FLOAT, false, offsetof(Vertex, roughness));
-    glVertexArrayAttribFormat(m_vao, 6, 2, GL_FLOAT, false, offsetof(Vertex, texCoord));
-    // For each of the vertex attributes we tell OpenGL to get them from VBO at slot 0.
-    glVertexArrayAttribBinding(m_vao, 0, 0);
-    glVertexArrayAttribBinding(m_vao, 1, 0);
-    glVertexArrayAttribBinding(m_vao, 2, 0);
-    glVertexArrayAttribBinding(m_vao, 3, 0);
-    glVertexArrayAttribBinding(m_vao, 4, 0);
-    glVertexArrayAttribBinding(m_vao, 5, 0);
-    glVertexArrayAttribBinding(m_vao, 6, 0);
+    glVertexArrayAttribFormat(m_vao, 2, 3, GL_FLOAT, false, offsetof(Vertex, tangent));
+    glVertexArrayAttribFormat(m_vao, 3, 3, GL_FLOAT, false, offsetof(Vertex, biTangent));
+    glVertexArrayAttribFormat(m_vao, 4, 3, GL_FLOAT, false, offsetof(Vertex, kd));
+    glVertexArrayAttribFormat(m_vao, 5, 3, GL_FLOAT, false, offsetof(Vertex, ks));
+    glVertexArrayAttribFormat(m_vao, 6, 1, GL_FLOAT, false, offsetof(Vertex, shininess));
+    glVertexArrayAttribFormat(m_vao, 7, 1, GL_FLOAT, false, offsetof(Vertex, roughness));
+    glVertexArrayAttribFormat(m_vao, 8, 2, GL_FLOAT, false, offsetof(Vertex, texCoord));
+
+    // For each of the vertex attributes we tell OpenGL to get them from VBO.
+    for (int i = 0; i < nAttributes; i++) {
+        glVertexArrayAttribBinding(m_vao, i, 0);
+
+    }
 
     // Each triangle has 3 vertices.
     m_numIndices = static_cast<GLsizei>(3 * cpuMesh.triangles.size());

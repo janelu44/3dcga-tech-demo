@@ -6,12 +6,15 @@ layout(location = 5) uniform vec3 viewPos = vec3(0.0);
 layout(location = 6) uniform vec3 lightPos = vec3(0.0);
 layout(location = 7) uniform vec3 forceColor = vec3(1.0);
 layout(location = 8) uniform bool ignoreBehind = false;
-layout(location = 9) uniform bool useShadow = false;
-layout(location = 10) uniform samplerCube texShadow;
-layout(location = 11) uniform float baseBias = 0.15;
+layout(location = 9) uniform sampler2D texNormal;
+layout(location = 20) uniform bool useShadow = false;
+layout(location = 21) uniform samplerCube texShadow;
+layout(location = 22) uniform float baseBias = 0.15;
 
 in vec3 fragPos;
 in vec3 fragNormal;
+in vec3 fragTangent;
+in vec3 fragBiTangent;
 in vec3 fragKd;
 in vec3 fragKs;
 in float fragShininess;
@@ -25,6 +28,15 @@ float lambert(bool ignoreBehind) {
     if (ignoreBehind) return abs(l);
     return max(l, 0.0);
 }
+
+float lambertWithBump(mat3 tbn) {
+    vec3 normal = texture(texNormal, fragTexCoord).rgb;
+    normal = normal * 2.0 - 1.0;
+    normal = normalize(tbn * normal);
+    float l = dot(normal, normalize(lightPos - fragPos));
+    return max(l, 0.0);
+}
+
 
 float blinnPhong(bool ignoreBehind) {
     vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
@@ -67,7 +79,11 @@ void main() {
     const vec3 normal = normalize(fragNormal);
 
     vec3 color = vec3(0.0);
-    if (hasTexCoords) color = texture(texColor, fragTexCoord).rgb;
+    if (hasTexCoords) {
+        color = texture(texColor, fragTexCoord).rgb;
+        color = lambertWithBump(TBN) * texture(texColor, fragTexCoord).rgb;
+        color = fragTexCoord.x, fragTexCoord.y, 0;
+    }
     else color = lambert(ignoreBehind) * forceColor + forceColor * 0.1f;
 
     float shadow = useShadow ? computeShadow() : 1.0;

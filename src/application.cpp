@@ -45,7 +45,8 @@ class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/textures/checkerboard.png"),
+              m_texture("resources/textures/mars.jpg"),
+              m_normalMap("resources/normal/mars_normal.jpg"),
               m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_playerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_firstCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
@@ -127,38 +128,40 @@ public:
         moon = {0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
     }
 
-    void loadCubemap() {
-        GLuint texCubemap;
-        glGenTextures(1, &texCubemap);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
+    void loadCubemaps() {
+        for (int x = 0; x < m_skyboxImages.size(); x++) {
+            GLuint texCubemap;
+            glGenTextures(1, &texCubemap);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
 
-        int width, height, nrChannels;
-        unsigned char *data;
-        for (unsigned int i = 0; i < m_cubemapFaces.size(); i++) {
-            data = stbi_load(m_cubemapFaces[i].c_str(), &width, &height, &nrChannels, 0);
-            glTexImage2D(
-                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                    0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-            );
+            int width, height, nrChannels;
+            unsigned char *data;
+            for (unsigned int i = 0; i < m_skyboxImages[x].size(); i++) {
+                data = stbi_load(m_skyboxImages[x][i].c_str(), &width, &height, &nrChannels, 0);
+                glTexImage2D(
+                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+                );
+            }
+
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+            m_skyboxes.push_back(texCubemap);
         }
-
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-        m_texCubemap = texCubemap;
 
         std::vector<glm::vec3> skyboxVertices{
                 {-1.0f, -1.0f, -1.0f},
-                {1.0f, -1.0f, -1.0f},
-                {1.0f, 1.0f, -1.0f},
-                {-1.0f, 1.0f, -1.0f},
+                {1.0f,  -1.0f, -1.0f},
+                {1.0f,  1.0f,  -1.0f},
+                {-1.0f, 1.0f,  -1.0f},
                 {-1.0f, -1.0f, 1.0f},
-                {1.0f, -1.0f, 1.0f},
-                {1.0f, 1.0f, 1.0f},
-                {-1.0f, 1.0f, 1.0f},
+                {1.0f,  -1.0f, 1.0f},
+                {1.0f,  1.0f,  1.0f},
+                {-1.0f, 1.0f,  1.0f},
         };
 
         std::vector<glm::uvec3> skyboxTriangles{
@@ -195,11 +198,8 @@ public:
         m_cubemapVao = vao;
     }
 
-    void renderCubeMap(const Shader& shader) {
+    void renderCubeMap(const Shader &shader) {
         glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
-        // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-        // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-
         glDepthMask(GL_FALSE);
         shader.bind();
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -207,7 +207,7 @@ public:
         glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
 
         glBindVertexArray(m_cubemapVao);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
         glDepthMask(GL_TRUE);
     }
@@ -248,13 +248,6 @@ public:
         for (GPUMesh &mesh: m_meshes) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            if (mesh.hasTextureCoords()) {
-                m_texture.bind(GL_TEXTURE0);
-                glUniform1i(3, 0);
-                glUniform1i(4, GL_TRUE);
-            } else {
-                glUniform1i(4, GL_FALSE);
-            }
             glm::vec3 lightPos = glm::vec3(0.0f);
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
@@ -287,8 +280,13 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
+            m_texture.bind(GL_TEXTURE0);
+            glUniform1i(3, 0);
+            glUniform1i(4, GL_TRUE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
             glUniform1i(8, GL_FALSE);
+            m_normalMap.bind(GL_TEXTURE1);
+            glUniform1i(9, 1);
             mesh.draw(shader);
 
             // MOON
@@ -302,8 +300,10 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(moonScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(moonNormal));
+            glUniform1i(4, GL_FALSE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
             glUniform1i(8, GL_FALSE);
+
             mesh.draw(shader);
         }
     }
@@ -368,6 +368,8 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
+            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
+            glUniform1i(8, GL_TRUE);
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
     }
@@ -388,13 +390,18 @@ public:
         m_camera = m_thirdPerson ? m_thirdCamera : m_firstCamera;
     }
 
+    struct {
+        int skybox = 0;
+        const float sameLineOffset = 100.0f;
+    } guiValues;
+
     void gui() {
-        int dummyInteger = 0;
-        ImGui::Begin("Window");
-        ImGui::InputInt("This is an integer input",
-                        &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
-        ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
-        ImGui::Checkbox("Use material if no texture", &m_useMaterial);
+        ImGui::Begin("Debug");
+        const char *skyboxOptions[] = {"Space", "Lake"};
+        ImGui::Text("Skybox");
+        ImGui::SameLine(guiValues.sameLineOffset);
+        ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+
         ImGui::End();
     }
 
@@ -509,18 +516,32 @@ private:
     std::vector<GPUMesh> m_cockpit;
     std::vector<GPUMesh> m_rocket;
     Texture m_texture;
+    Texture m_normalMap;
     bool m_useMaterial{true};
 
-    GLuint m_texCubemap, m_cubemapVao;
-    std::vector<std::string> m_cubemapFaces
-        {
-                "resources/textures/skybox/right.jpg",
-                "resources/textures/skybox/left.jpg",
-                "resources/textures/skybox/top.jpg",
-                "resources/textures/skybox/bottom.jpg",
-                "resources/textures/skybox/front.jpg",
-                "resources/textures/skybox/back.jpg"
-        };
+    GLuint m_cubemapIbo;
+    GLuint m_cubemapVbo;
+    GLuint m_cubemapVao;
+    std::vector<std::vector<std::string>> m_skyboxImages{
+            {
+                    "resources/textures/space/right.jpg",
+                    "resources/textures/space/left.jpg",
+                    "resources/textures/space/top.jpg",
+                    "resources/textures/space/bottom.jpg",
+                    "resources/textures/space/front.jpg",
+                    "resources/textures/space/back.jpg"
+            },
+            {
+                    "resources/textures/skybox/right.jpg",
+                    "resources/textures/skybox/left.jpg",
+                    "resources/textures/skybox/top.jpg",
+                    "resources/textures/skybox/bottom.jpg",
+                    "resources/textures/skybox/front.jpg",
+                    "resources/textures/skybox/back.jpg"
+            }
+    };
+
+    std::vector<GLuint> m_skyboxes;
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix;
