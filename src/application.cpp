@@ -368,10 +368,6 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-//            glActiveTexture(GL_TEXTURE4);
-//            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
-//            glUniform1i(7, 4);
-            glUniform1i(8, GL_TRUE);
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
     }
