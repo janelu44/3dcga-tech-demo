@@ -36,24 +36,40 @@ float blinnPhong(bool ignoreBehind) {
     return pow(d, fragShininess);
 }
 
-float shadow(vec3 lightDir) {
-    float sampledDistance = texture(texShadow, lightDir).x;
-    float distance = length(lightDir);
+vec3 sampleOffsetDirections[20] = vec3[] (
+    vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1),
+    vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+    vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+    vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);
 
-    if (distance < sampledDistance + 0.00005) return 1.0;
-    else return 0.0;
+float computeShadow() {
+    const vec3 lightVec = fragPos - lightPos;
+    const float viewDistance = length(viewPos - fragPos);
+
+    float shadow = 0.0;
+    float bias = 0.15 * (1.0 - dot(fragNormal, normalize(lightVec)));
+    int pcfSamples = 20;
+    float diskRadius = 0.001 + pow(viewDistance, 1.1) * 0.001;
+
+    for(int i = 0; i < pcfSamples; ++i) {
+        vec3 sampleVec = lightVec + sampleOffsetDirections[i] * diskRadius;
+        float sampleDistance = texture(texShadow, normalize(sampleVec)).x;
+        if(length(lightVec) < sampleDistance + bias) shadow += 1.0;
+    }
+
+    return shadow / float(pcfSamples);
 }
 
-void main()
-{
+void main() {
     const vec3 normal = normalize(fragNormal);
-    const vec3 lightDir = fragPos - lightPos;
 
     vec3 color = vec3(0.0);
     if (hasTexCoords) color = texture(texColor, fragTexCoord).rgb;
     else color = lambert(ignoreBehind) * forceColor + forceColor * 0.1f;
 
-    float shadowCoeff = useShadow ? shadow(lightDir) : 1.0;
+    float shadow = useShadow ? computeShadow() : 1.0;
 
-    fragColor = vec4(color * shadowCoeff, 1.0);
+    fragColor = vec4(color * shadow, 1.0);
 }

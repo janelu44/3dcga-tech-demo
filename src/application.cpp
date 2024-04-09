@@ -360,7 +360,7 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            if (m_thirdPerson) mesh.draw(shader);
+            if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
     }
 
@@ -368,8 +368,8 @@ public:
         m_camera.updateInput(m_captureCursor);
         if (m_thirdPerson) {
             // Uncomment for BANANA ROTATE
-//            m_player.forward = m_camera.forward;
-//            m_player.up = m_camera.up;
+            m_player.forward = m_camera.forward;
+            m_player.up = m_camera.up;
 
             m_player.updateInput();
             m_camera.position = m_player.position - m_distance * m_camera.forward;
@@ -504,7 +504,7 @@ private:
         };
 
     // Projection and view matrices for you to fill in and use
-    glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
+    glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 100.0f);
     glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
     glm::mat4 m_modelMatrix{1.0f};
 
