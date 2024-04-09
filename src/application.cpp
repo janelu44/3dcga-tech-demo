@@ -44,8 +44,8 @@ public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
               m_texture("resources/textures/checkerboard.png"),
-              m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
-              m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
+              m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -401,12 +401,15 @@ public:
     }
 
 private:
+    const glm::vec3 INITIAL_POSITION = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
+    const glm::vec3 INITIAL_FORWARD = glm::vec3(-5.0f, -10.0f, 0.5f);
+
     Window m_window;
     Camera m_camera;
     Player m_player;
 
     // Camera settings
-    bool m_captureCursor{false};
+    bool m_captureCursor{true};
     bool m_thirdPerson{false};
     float distance{1.0f};
 //    bool m_detachedCamera{false};
@@ -438,8 +441,8 @@ private:
             };
 
     // Projection and view matrices for you to fill in and use
-    glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
-    glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
+    glm::mat4 m_projectionMatrix;
+    glm::mat4 m_viewMatrix;
     glm::mat4 m_modelMatrix{1.0f};
 };
 
