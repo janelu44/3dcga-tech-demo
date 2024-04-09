@@ -91,7 +91,7 @@ public:
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
 
-        loadCubemap();
+        loadCubemaps();
 
         try {
             ShaderBuilder testBuilder;
@@ -252,10 +252,10 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
-            glUniform1i(9, m_shadowsEnabled);
-            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
-            glUniform1i(10, 1);
-            glUniform1f(11, 0.15f);
+            glUniform1i(20, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE9);
+            glUniform1i(21, 9);
+            glUniform1f(22, 0.15f);
 
             // SUN
             glm::mat4 sunPos = glm::mat4(1.0f);
@@ -324,10 +324,10 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
-            glUniform1i(9, m_shadowsEnabled);
-            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
-            glUniform1i(10, 1);
-            glUniform1f(11, 0.01f);
+            glUniform1i(20, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE9);
+            glUniform1i(21, 9);
+            glUniform1f(22, 0.01f);
 
             glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
@@ -350,10 +350,10 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
-            glUniform1i(9, m_shadowsEnabled);
-            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
-            glUniform1i(10, 1);
-            glUniform1f(11, 0.01f);
+            glUniform1i(20, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE9);
+            glUniform1i(21, 9);
+            glUniform1f(22, 0.01f);
 
             glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
             glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
@@ -368,7 +368,9 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
+//            glActiveTexture(GL_TEXTURE4);
+//            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
+//            glUniform1i(7, 4);
             glUniform1i(8, GL_TRUE);
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
@@ -406,7 +408,7 @@ public:
     }
 
     void update() {
-        loadCubemap();
+        loadCubemaps();
 
         while (!m_window.shouldClose()) {
             m_window.updateInput();
