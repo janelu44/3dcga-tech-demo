@@ -41,11 +41,6 @@ struct Planet {
     float orbitSpeed = 1.0f;
 };
 
-//glm::vec3 initPos = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
-//glm::vec3 initForward = -glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 initPos = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 initForward = glm::vec3(1.0f, 0.0f, 0.0f);
-
 class Application {
 public:
     Application()
@@ -89,7 +84,7 @@ public:
             m_camera.zFar
         );
 
-        m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
+        m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
@@ -267,6 +262,7 @@ public:
             glUniform1i(9, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE1);
             glUniform1i(10, 1);
+            glUniform1f(11, 0.15f);
 
             // SUN
             glm::mat4 sunPos = glm::mat4(1.0f);
@@ -331,6 +327,7 @@ public:
             glUniform1i(9, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE1);
             glUniform1i(10, 1);
+            glUniform1f(11, 0.01f);
 
             glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
@@ -356,6 +353,7 @@ public:
             glUniform1i(9, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE1);
             glUniform1i(10, 1);
+            glUniform1f(11, 0.01f);
 
             glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
             glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);

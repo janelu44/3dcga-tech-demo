@@ -6,9 +6,9 @@ layout(location = 5) uniform vec3 viewPos = vec3(0.0);
 layout(location = 6) uniform vec3 lightPos;
 layout(location = 7) uniform vec3 forceColor = vec3(1.0);
 layout(location = 8) uniform bool ignoreBehind = false;
-
 layout(location = 9) uniform bool useShadow = false;
 layout(location = 10) uniform samplerCube texShadow;
+layout(location = 11) uniform float baseBias = 0.15;
 
 in vec3 fragPos;
 
