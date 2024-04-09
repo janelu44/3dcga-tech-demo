@@ -19,6 +19,10 @@ add_executable(FinalProject
 	"src/shadow/shadow_map_fbo.cpp"
 	"src/shadow/shadow_map_fbo.h"
 	"src/shadow/shadow_directions.h"
+	"src/planet.h"
+	"src/planet.cpp"
+	"src/planet_system.h"
+	"src/planet_system.cpp"
 )
 target_compile_features(FinalProject PRIVATE cxx_std_20)
 target_link_libraries(FinalProject PRIVATE CGFramework)

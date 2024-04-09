@@ -6,6 +6,7 @@
 #include "stb/stb_image.h"
 #include "shadow/shadow_directions.h"
 #include "shadow/shadow_map_fbo.h"
+#include "planet_system.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -31,15 +32,6 @@ DISABLE_WARNINGS_POP()
 #include <vector>
 #include <glm/gtx/quaternion.hpp>
 #include <cmath>
-
-struct Planet {
-    float size = 1.0f;
-    float orbitSize = 2.0f;
-    float revolutionProgress = 0.0f;
-    float orbitProgress = 0.0f;
-    float revolutionSpeed = 1.0f;
-    float orbitSpeed = 1.0f;
-};
 
 class Application {
 public:
@@ -122,10 +114,6 @@ public:
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
-
-        sun = {3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
-        earth = {1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
-        moon = {0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
     }
 
     void loadCubemaps() {
@@ -231,80 +219,8 @@ public:
             glm::mat4 m_lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
             glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
 
-            renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
+//            planetSystem.drawShadowMap(m_shadowShader, m_lightSpaceMatrix);
             renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
-        }
-    }
-
-    void updateSolarSystem() {
-        earth.revolutionProgress += earth.revolutionSpeed;
-        earth.orbitProgress += earth.orbitSpeed;
-
-        moon.revolutionProgress += moon.revolutionSpeed;
-        moon.orbitProgress += moon.orbitSpeed;
-    }
-
-    void renderSolarSystem(const Shader& shader, glm::mat4 mvpMatrix, bool renderSun = true) {
-        for (GPUMesh &mesh: m_meshes) {
-            shader.bind();
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glm::vec3 lightPos = glm::vec3(0.0f);
-            glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
-            glUniform3fv(6, 1, glm::value_ptr(lightPos));
-
-            glUniform1i(20, m_shadowsEnabled);
-            m_shadowMapFBO.BindForReading(GL_TEXTURE9);
-            glUniform1i(21, 9);
-            glUniform1f(22, 0.15f);
-
-            // SUN
-            glm::mat4 sunPos = glm::mat4(1.0f);
-            glm::mat4 sunRot = glm::rotate(sunPos, glm::radians(sun.revolutionProgress), glm::vec3(0, 1, 0));
-            glm::mat3 sunNormal = glm::inverseTranspose(glm::mat3(sunRot));
-            glm::mat4 sunScale = glm::scale(sunRot, glm::vec3(sun.size));
-
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(sunScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(sunNormal));
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(1.0f, 0.5f, 0.0f)));
-            glUniform1i(8, GL_TRUE);
-            if (renderSun) mesh.draw(shader);
-
-            // EARTH
-            glm::mat4 earthPos = sunPos;
-            earthPos = glm::rotate(earthPos, glm::radians(earth.orbitProgress), glm::vec3(0, 1, 0));
-            earthPos = glm::translate(earthPos, glm::vec3(earth.orbitSize, 0, 0));
-            glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress),
-                                             glm::vec3(0, 1, 0));
-            glm::mat3 earthNormal = glm::inverseTranspose(glm::mat3(earthRot));
-            glm::mat4 earthScale = glm::scale(earthRot, glm::vec3(earth.size));
-
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(earthScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(earthNormal));
-            m_texture.bind(GL_TEXTURE0);
-            glUniform1i(3, 0);
-            glUniform1i(4, GL_TRUE);
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
-            glUniform1i(8, GL_FALSE);
-            m_normalMap.bind(GL_TEXTURE1);
-            glUniform1i(9, 1);
-            mesh.draw(shader);
-
-            // MOON
-            glm::mat4 moonPos = earthPos;
-            moonPos = glm::rotate(moonPos, glm::radians(moon.orbitProgress), glm::vec3(0, 1, 0));
-            moonPos = glm::translate(moonPos, glm::vec3(moon.orbitSize, 0, 0));
-            glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress),
-                                            glm::vec3(0, 1, 0));
-            glm::mat4 moonNormal = glm::inverseTranspose(glm::mat3(moonRot));
-            glm::mat4 moonScale = glm::scale(moonRot, glm::vec3(moon.size));
-
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(moonScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(moonNormal));
-            glUniform1i(4, GL_FALSE);
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
-            glUniform1i(8, GL_FALSE);
-
-            mesh.draw(shader);
         }
     }
 
@@ -334,7 +250,7 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
+            if (!m_thirdPerson && renderCockpit) mesh.draw(m_defaultShader);
         }
 
         for (GPUMesh &mesh: m_rocket) {
@@ -372,7 +288,7 @@ public:
 //            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
 //            glUniform1i(7, 4);
             glUniform1i(8, GL_TRUE);
-            if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
+            if (m_thirdPerson || !renderCockpit) mesh.draw(m_defaultShader);
         }
     }
 
@@ -414,7 +330,9 @@ public:
             m_window.updateInput();
             gui();
 
-            updateSolarSystem();
+            continue;
+
+//            planetSystem.update();
             updateCamera();
 
             // Update projection and mvp matrices
@@ -427,7 +345,7 @@ public:
             m_viewMatrix = m_camera.viewMatrix();
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
-            if(m_shadowsEnabled) renderShadowMap();
+//            if(m_shadowsEnabled) renderShadowMap();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -441,7 +359,7 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_defaultShader, mvpMatrix);
+//            planetSystem.draw(mvpMatrix);
             renderRocket(m_defaultShader, mvpMatrix);
 
             m_window.swapBuffers();
@@ -542,7 +460,7 @@ private:
     glm::mat4 m_viewMatrix;
     glm::mat4 m_modelMatrix{1.0f};
 
-    Planet sun, earth, moon;
+//    PlanetSystem planetSystem;
 };
 
 int main() {
