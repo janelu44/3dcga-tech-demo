@@ -532,14 +532,6 @@ private:
                     "resources/textures/space/bottom.jpg",
                     "resources/textures/space/front.jpg",
                     "resources/textures/space/back.jpg"
-            },
-            {
-                    "resources/textures/skybox/right.jpg",
-                    "resources/textures/skybox/left.jpg",
-                    "resources/textures/skybox/top.jpg",
-                    "resources/textures/skybox/bottom.jpg",
-                    "resources/textures/skybox/front.jpg",
-                    "resources/textures/skybox/back.jpg"
             }
     };
 
