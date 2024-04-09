@@ -12,8 +12,6 @@ out vec3 fragPos;
 
 void main()
 {
-    vec4 pos4 = vec4(position, 1.0);
-
-    fragPos = (modelMatrix * pos4).xyz;
-    gl_Position = mvpMatrix * pos4;
+    fragPos = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = mvpMatrix * vec4(fragPos, 1.0);
 }

@@ -41,13 +41,18 @@ struct Planet {
     float orbitSpeed = 1.0f;
 };
 
+//glm::vec3 initPos = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
+//glm::vec3 initForward = -glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 initPos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 initForward = glm::vec3(1.0f, 0.0f, 0.0f);
+
 class Application {
 public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
               m_texture("resources/textures/checkerboard.png"),
-              m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
-              m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
+              m_camera(&m_window, initPos, initForward),
+              m_player(&m_window, initPos, initForward) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -78,7 +83,7 @@ public:
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
-        m_shadowMapFBO.Init(1024, 1024);
+        m_shadowMapFBO.Init(2048, 2048);
 
         loadCubemap();
 
@@ -210,7 +215,7 @@ public:
                 m_camera.zFar
         );
 
-        glViewport(0, 0, 1024, 1024);
+        glViewport(0, 0, 2048, 2048);
         glCullFace(GL_FRONT);
         glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
 
@@ -222,7 +227,7 @@ public:
             glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
 
             renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
-            renderRocket(m_shadowShader, m_lightSpaceMatrix);
+            renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
         }
     }
 
@@ -299,7 +304,7 @@ public:
         }
     }
 
-    void renderRocket(const Shader& shader, glm::mat4 mvpMatrix) {
+    void renderRocket(const Shader& shader, glm::mat4 mvpMatrix, bool renderCockpit = true) {
         glm::vec3 lightPos = glm::vec3(0.0f);
 
         for (GPUMesh &mesh: m_cockpit) {
@@ -325,7 +330,7 @@ public:
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
             glUniform1i(8, GL_TRUE);
-            if (!m_thirdPerson) mesh.draw(shader);
+            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
         for (GPUMesh &mesh: m_rocket) {

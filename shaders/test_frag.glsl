@@ -37,7 +37,7 @@ float blinnPhong(bool ignoreBehind) {
 }
 
 float shadowFactor(vec3 lightDir) {
-    float sampledDistance = texture(texShadow, lightDir).r;
+    float sampledDistance = texture(texShadow, lightDir).x;
     float distance = length(lightDir);
 
     if (distance < sampledDistance + 0.005) return 1.0;
@@ -54,7 +54,7 @@ void main()
 //        fragColor = vec4(lambert(ignoreBehind) * forceColor + forceColor * 0.1f, 1);
 //    }
 
-    vec3 lightDir = lightPos - fragPos;
+    vec3 lightDir = fragPos - lightPos;
     float shadow = shadowFactor(lightDir);
 
     fragColor = vec4(vec3(shadow), 1.0);
