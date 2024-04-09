@@ -2,8 +2,8 @@
 
 layout(location = 3) uniform sampler2D texColor;
 layout(location = 4) uniform bool hasTexCoords;
-layout(location = 5) uniform vec3 viewPos = vec3(0.0);
-layout(location = 6) uniform vec3 lightPos;
+//layout(location = 5) uniform vec3 viewPos = vec3(0.0);
+layout(location = 6) uniform vec3 lightPos = vec3(0.0);
 layout(location = 7) uniform vec3 forceColor = vec3(1.0);
 layout(location = 8) uniform bool ignoreBehind = false;
 
@@ -23,16 +23,16 @@ float lambert(bool ignoreBehind) {
     return max(l, 0.0);
 }
 
-float blinnPhong(bool ignoreBehind) {
-    vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
-    vec3 N = normalize(fragNormal);
-    float d = dot(H, N);
-    if (ignoreBehind) d = abs(d);
-    if (dot(lightPos - fragPos, fragNormal) <= 0.0) {
-        d = 0.0;
-    }
-    return pow(d, fragShininess);
-}
+//float blinnPhong(bool ignoreBehind) {
+//    vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
+//    vec3 N = normalize(fragNormal);
+//    float d = dot(H, N);
+//    if (ignoreBehind) d = abs(d);
+//    if (dot(lightPos - fragPos, fragNormal) <= 0.0) {
+//        d = 0.0;
+//    }
+//    return pow(d, fragShininess);
+//}
 
 void main()
 {

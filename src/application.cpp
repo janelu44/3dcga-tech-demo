@@ -44,8 +44,11 @@ public:
     Application()
             : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
               m_texture("resources/textures/checkerboard.png"),
-              m_camera(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)),
-              m_player(&m_window, glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f, -glm::vec3(0.0f, 0.0f, -1.0f)) {
+              m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_playerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_firstCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_thirdCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -72,6 +75,13 @@ public:
             );
         });
         m_window.setMouseCapture(m_captureCursor);
+
+        m_projectionMatrix = glm::perspective(
+            glm::radians(m_camera.fov),
+            m_window.getAspectRatio(),
+            m_camera.zNear,
+            m_camera.zFar
+        );
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
@@ -195,21 +205,19 @@ public:
             m_window.updateInput();
             gui();
 
-            m_camera.updateInput(m_captureCursor);
-            if (m_thirdPerson) {
-                // Uncomment for BANANA ROTATE
-//                m_player.forward = m_camera.forward;
-//                m_player.up = m_camera.up;
+            m_playerCamera.updateInput(m_captureCursor && !m_detachedCamera);
+            m_firstCamera.updateInput(m_captureCursor && !m_thirdPerson);
+            m_thirdCamera.updateInput(m_captureCursor && m_thirdPerson);
 
-                m_player.updateInput();
-                m_camera.position = m_player.position - distance * m_camera.forward;
-            } else {
-                m_player.forward = m_camera.forward;
-                m_player.up = m_camera.up;
+            m_player.forward = m_playerCamera.forward;
+            m_player.up = m_playerCamera.up;
+            m_player.updateInput();
 
-                m_player.updateInput();
-                m_camera.position = m_player.position;
-            }
+            m_playerCamera.position = m_player.position;
+            m_firstCamera.position = m_player.position;
+            m_thirdCamera.position = m_player.position - distance * m_thirdCamera.forward;
+
+            m_camera = m_thirdPerson ? m_thirdCamera : m_firstCamera;
 
             earth.revolutionProgress += earth.revolutionSpeed;
             earth.orbitProgress += earth.orbitSpeed;
@@ -217,12 +225,6 @@ public:
             moon.revolutionProgress += moon.revolutionSpeed;
             moon.orbitProgress += moon.orbitSpeed;
 
-            m_projectionMatrix = glm::perspective(
-                    glm::radians(m_camera.fov),
-                    m_window.getAspectRatio(),
-                    m_camera.zNear,
-                    m_camera.zFar
-            );
             m_viewMatrix = m_camera.viewMatrix();
 
             // Clear the screen
@@ -238,7 +240,7 @@ public:
             m_cubemapShader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
-            glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
 
             glBindVertexArray(m_cubemapVao);
             glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
@@ -264,7 +266,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 // SUN
@@ -314,7 +316,8 @@ public:
             // Render cockpit meshes
             for (GPUMesh &mesh: m_cockpit) {
                 m_defaultShader.bind();
-                glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
+                glUniformMatrix4fv(0, 1, GL_FALSE, 
+                    glm::value_ptr(m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
                 if (mesh.hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
                     glUniform1i(3, 0);
@@ -323,7 +326,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
@@ -346,7 +349,7 @@ public:
                     glUniform1i(4, GL_FALSE);
                 }
                 glm::vec3 lightPos = glm::vec3(0.0f);
-                glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+                //glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
                 glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
                 glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -378,6 +381,8 @@ public:
         }
         if (key == GLFW_KEY_V) {
             m_thirdPerson = !m_thirdPerson;
+            m_firstCamera = m_playerCamera;
+            m_thirdCamera = m_playerCamera;
         }
 
     }
@@ -389,27 +394,37 @@ public:
     }
 
     void onMouseClicked(int button, int mods) {
-//        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-//            m_detachedCamera = true;
-//        }
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            m_detachedCamera = true;
+        }
     }
 
     void onMouseReleased(int button, int mods) {
-//        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-//            m_detachedCamera = false;
-//        }
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            m_detachedCamera = false;
+            m_firstCamera = m_playerCamera;
+            m_thirdCamera = m_playerCamera;
+        }
     }
 
 private:
+    const glm::vec3 INITIAL_POSITION = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
+    const glm::vec3 INITIAL_FORWARD = glm::vec3(-5.0f, -10.0f, 0.5f);
+
     Window m_window;
-    Camera m_camera;
+
     Player m_player;
+    Camera m_playerCamera;
+
+    Camera m_firstCamera;
+    Camera m_thirdCamera;
+    Camera m_camera;
 
     // Camera settings
-    bool m_captureCursor{false};
+    bool m_captureCursor{true};
     bool m_thirdPerson{false};
     float distance{1.0f};
-//    bool m_detachedCamera{false};
+    bool m_detachedCamera{false};
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -438,8 +453,8 @@ private:
             };
 
     // Projection and view matrices for you to fill in and use
-    glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
-    glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
+    glm::mat4 m_projectionMatrix;
+    glm::mat4 m_viewMatrix;
     glm::mat4 m_modelMatrix{1.0f};
 };
 

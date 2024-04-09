@@ -21,7 +21,7 @@ public:
     glm::vec3 forward { 0, 0, -1 };
     glm::vec3 up { 0, 1, 0 };
     float fov = 70.0f;
-    float zNear = 0.1f;
+    float zNear = 0.01f;
     float zFar = 30.0f;
 
 private:
