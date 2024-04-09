@@ -83,7 +83,7 @@ public:
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
 
-        m_shadowMapFBO.Init(2048, 2048);
+        m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
 
         loadCubemap();
 
@@ -215,7 +215,7 @@ public:
                 m_camera.zFar
         );
 
-        glViewport(0, 0, 2048, 2048);
+        glViewport(0, 0, m_shadowMapSize, m_shadowMapSize);
         glCullFace(GL_FRONT);
         glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
 
@@ -258,7 +258,6 @@ public:
             m_shadowMapFBO.BindForReading(GL_TEXTURE1);
             glUniform1i(10, 1);
 
-
             // SUN
             glm::mat4 sunPos = glm::mat4(1.0f);
             glm::mat4 sunRot = glm::rotate(sunPos, glm::radians(sun.revolutionProgress), glm::vec3(0, 1, 0));
@@ -285,7 +284,6 @@ public:
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.0f, 0.5f, 1.0f)));
             glUniform1i(8, GL_FALSE);
             mesh.draw(shader);
-
 
             // MOON
             glm::mat4 moonPos = earthPos;
@@ -329,7 +327,6 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            glUniform1i(8, GL_TRUE);
             if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
@@ -346,6 +343,10 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
+            glUniform1i(9, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE1);
+            glUniform1i(10, 1);
+
             glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
             glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
 
@@ -359,8 +360,6 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            glBindTexture(GL_TEXTURE_CUBE_MAP, m_texCubemap);
-            glUniform1i(8, GL_TRUE);
             if (m_thirdPerson) mesh.draw(shader);
         }
     }
@@ -369,8 +368,8 @@ public:
         m_camera.updateInput(m_captureCursor);
         if (m_thirdPerson) {
             // Uncomment for BANANA ROTATE
-            m_player.forward = m_camera.forward;
-            m_player.up = m_camera.up;
+//            m_player.forward = m_camera.forward;
+//            m_player.up = m_camera.up;
 
             m_player.updateInput();
             m_camera.position = m_player.position - m_distance * m_camera.forward;
@@ -427,8 +426,8 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_testShader, mvpMatrix);
-            renderRocket(m_testShader, mvpMatrix);
+            renderSolarSystem(m_defaultShader, mvpMatrix);
+            renderRocket(m_defaultShader, mvpMatrix);
 
             m_window.swapBuffers();
         }
@@ -483,6 +482,7 @@ private:
     Shader m_reflectionShader;
 
     // Shadow Mapping
+    int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
 
