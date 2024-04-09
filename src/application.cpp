@@ -19,6 +19,7 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 #include <imgui/imgui.h>
 
@@ -29,8 +30,8 @@ DISABLE_WARNINGS_POP()
 #include <functional>
 #include <iostream>
 #include <vector>
-#include <glm/gtx/quaternion.hpp>
 #include <cmath>
+#include <chrono>
 
 struct Planet {
     float size = 1.0f;
@@ -377,10 +378,11 @@ public:
     }
 
     void updateCamera() {
-        m_camera.updateInput(m_captureCursor);
-        m_playerCamera.updateInput(m_captureCursor && !m_detachedCamera);
-        m_firstCamera.updateInput(m_captureCursor && !m_thirdPerson);
-        m_thirdCamera.updateInput(m_captureCursor && m_thirdPerson);
+        long long time = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+
+        m_playerCamera.update(m_captureCursor && !m_detachedCamera, time);
+        m_firstCamera.update(m_captureCursor && !m_thirdPerson, time);
+        m_thirdCamera.update(m_captureCursor && m_thirdPerson, time);
 
         m_player.forward = m_playerCamera.forward;
         m_player.up = m_playerCamera.up;
@@ -478,8 +480,10 @@ public:
     void onMouseReleased(int button, int mods) {
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             m_detachedCamera = false;
-            m_firstCamera = m_playerCamera;
-            m_thirdCamera = m_playerCamera;
+            if (m_thirdPerson)
+                m_thirdCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 1000.0f);
+            else
+                m_firstCamera.setTarget(m_playerCamera.forward, m_playerCamera.up, 1000.0f);
         }
     }
 
