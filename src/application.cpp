@@ -450,7 +450,7 @@ public:
 
         m_player.forward = m_playerCamera.forward;
         m_player.up = m_playerCamera.up;
-        m_player.updateInput(frametime);
+        m_player.updateInput(frametime, m_flatWorld);
 
         m_playerCamera.position = m_player.position;
         m_firstCamera.position = m_player.position;
