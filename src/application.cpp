@@ -38,7 +38,7 @@ DISABLE_WARNINGS_POP()
 class Application {
 public:
     Application()
-        : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
+        : m_window("Final Project", glm::ivec2(1600, 900), OpenGLVersion::GL45),
         m_texture("resources/textures/mars.jpg"),
         m_normalMap("resources/normal/mars_normal.jpg"),
         m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
@@ -233,9 +233,9 @@ public:
             glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
             glm::mat4 lightSpaceMatrix = shadowProjectionMatrix * lightViewMatrix;
 
-            planetSystem.draw(m_lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true, false);
+            planetSystem.draw(lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true, false);
             renderIoanSystem(m_shadowShader, lightSpaceMatrix);
-            renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
+            renderRocket(m_shadowShader, lightSpaceMatrix, false);
         }
     }
 
@@ -265,6 +265,7 @@ public:
             mesh.draw(shader);
         }
     }
+
     void renderMinimapTexture() {
         float resXY = float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y);
         float resYX = float(m_minimap.m_resolution.y) / float(m_minimap.m_resolution.x);
@@ -287,7 +288,7 @@ public:
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        renderSolarSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        planetSystem.draw(minimapSpaceMatrix, m_camera.position, m_shadowMapFBO, true, m_realisticMinimap ? m_defaultShader : m_minimapColorShader, true, true);
         renderIoanSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
         renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
     }
@@ -297,8 +298,8 @@ public:
 
         glDisable(GL_DEPTH_TEST);
 
-        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.0f));
-        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(0.4f, 0.4f, 1.0f));
+        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(guiValues.minimapPosition, 0.0f));
+        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(guiValues.minimapScale, guiValues.minimapScale, 1.0f));
 
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
@@ -308,11 +309,12 @@ public:
         m_minimap.Draw();
         glEnable(GL_DEPTH_TEST);
     }
+
     void updateIoanSystem() {
-        ioan.revolutionProgress += ioan.revolutionSpeed * frametimeScale;
         for (int i = 0; i < 3; i++)
-            ioanProgress[i] = ioanPath.advance(ioanProgress[i], ioan.orbitSpeed * frametimeScale);
+            ioanProgress[i] = ioanPath.advance(ioanProgress[i], ioanSpeed * frametimeScale);
     }
+
     void renderIoanSystem(const Shader& shader, glm::mat4 mvpMatrix) {
         for (GPUMesh& mesh : m_meshes) {
             shader.bind();
@@ -335,21 +337,19 @@ public:
             for (int i = 0; i < 3; i++) {
                 glm::mat4 ioanPos = glm::mat4(1.0f);
                 ioanPos = glm::translate(ioanPos, ioanPath.evaluate(ioanProgress[i]));
-                ioanPos = glm::translate(ioanPos, glm::vec3(ioan.orbitSize, 0, 0));
-                glm::mat4 ioanRot = glm::rotate(ioanPos, glm::radians(ioan.revolutionProgress),
-                    glm::vec3(0, 1, 0));
-                glm::mat4 ioanNormal = glm::inverseTranspose(glm::mat3(ioanRot));
-                glm::mat4 ioanScale = glm::scale(ioanRot, glm::vec3(ioan.size));
+                ioanPos = glm::translate(ioanPos, glm::vec3(ioanCenter, 0, 0));
+                glm::mat4 ioanNormal = glm::inverseTranspose(glm::mat3(ioanPos));
+                glm::mat4 ioanScale = glm::scale(ioanPos, glm::vec3(ioanSize));
 
                 glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(ioanScale));
                 glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(ioanNormal));
-                glUniform1i(4, GL_FALSE);
                 glUniform3fv(7, 1, glm::value_ptr(colors[i]));
                 glUniform1i(8, GL_FALSE);
                 mesh.draw(shader);
             }
         }
     }
+
     void renderRocket(const Shader& shader, glm::mat4 mvpMatrix, bool renderCockpit = true) {
         glm::vec3 lightPos = glm::vec3(0.0f);
 
@@ -418,9 +418,14 @@ public:
     struct {
         int skybox = 0;
         const float sameLineOffset = 100.0f;
+
+        // minimap
+        glm::vec2 minimapPosition = glm::vec2(0.961f, 0.413f);
+        float minimapScale = 0.5f;
     } guiValues;
 
     void gui() {
+        float sameLineOffset = 100.0f;
         ImGui::Begin("Debug");
 
         ImGui::BeginTabBar("#tab_bar");
@@ -429,11 +434,13 @@ public:
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Misc")) {
-            const char *skyboxOptions[] = {"Space", "Lake"};
-            ImGui::Text("Skybox");
-            ImGui::SameLine(guiValues.sameLineOffset);
-            ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+            ImGui::Text("Minimap position");
+            ImGui::SameLine(sameLineOffset);
+            ImGui::DragFloat2("##MinimapPosition", glm::value_ptr(guiValues.minimapPosition), 0.001f);
 
+            ImGui::Text("Minimap scale");
+            ImGui::SameLine(sameLineOffset);
+            ImGui::DragFloat("##MinimapScale", &guiValues.minimapScale, 0.001f);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -615,7 +622,9 @@ private:
 
     PlanetSystem planetSystem;
     // de fapt ioan e sistem stabil format din trei corpuri de masa egala care orbiteaza in forma de 8
-    Planet ioan{ 0.4f, 15.0f, 0.0f, 0.0f, 0.0f, 0.05f };
+    float ioanCenter = 15.0f;
+    float ioanSize = 0.4f;
+    float ioanSpeed = 0.05f;
     float ioanProgress[3]{ 0.0f, 0.4f, 0.8f };
     BezierPath ioanPath{
         {
