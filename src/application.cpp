@@ -49,9 +49,13 @@ public:
               m_normalMap("resources/normal/mars_normal.jpg"),
               m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_playerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_spacePlayerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_flatPlayerCamera(&m_window, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
               m_firstCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_thirdCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD) {
+              m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_spacePlayer(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+              m_flatPlayer(&m_window, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -88,6 +92,7 @@ public:
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
+        m_tile = GPUMesh::loadMeshGPU("resources/meshes/flat_tile.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
 
@@ -231,8 +236,12 @@ public:
             glm::mat4 m_lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
             glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
 
-            renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
-            renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
+            if (m_flatWorld) {
+
+            } else {
+                renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
+                renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
+            }
         }
     }
 
@@ -371,8 +380,36 @@ public:
 //            glActiveTexture(GL_TEXTURE4);
 //            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
 //            glUniform1i(7, 4);
-            glUniform1i(8, GL_TRUE);
+//            glUniform1i(8, GL_TRUE);
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
+        }
+    }
+
+    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix) {
+        float genRadius = m_renderDistance;
+        glm::vec2 genBottomCorner = glm::vec2(m_player.position.x - genRadius, m_player.position.z - genRadius);
+        glm::vec2 genTopCorner = glm::vec2(m_player.position.x + genRadius, m_player.position.z + genRadius);
+
+        for (float x = genBottomCorner.x; x < genTopCorner.x; x += 2.0f) {
+            for (float y = genBottomCorner.y; y < genTopCorner.y; y += 2.0f) {
+                glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
+                glm::vec3 tilePos = glm::vec3(tileCenter.x, 0.0f, tileCenter.y);
+                if (glm::distance(tilePos, m_player.position) < genRadius) renderFlatTile(shader, mvpMatrix, tilePos);
+            }
+        }
+    }
+
+    void renderFlatTile(Shader& shader, glm::mat4 mvpMatrix, glm::vec3 position) {
+        for (GPUMesh &mesh: m_tile) {
+            shader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(glm::translate(glm::mat4(1.0f), position - glm::vec3(0.0f, 0.1f, 0.0f))));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(glm::mat4(1.0f)))));
+            glUniform3fv(6, 1, glm::value_ptr(glm::vec3(0.0f, 7.0f, 0.0f)));
+            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.3f, 0.3f, 0.3f)));
+            glUniform1i(8, GL_TRUE);
+            glUniform1i(20, GL_FALSE);
+            mesh.draw(shader);
         }
     }
 
@@ -403,6 +440,8 @@ public:
         ImGui::Text("Skybox");
         ImGui::SameLine(guiValues.sameLineOffset);
         ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+
+        ImGui::SliderFloat("Render Distance", &m_renderDistance, 10.0f, 100.0f);
 
         ImGui::End();
     }
@@ -441,8 +480,12 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-            renderSolarSystem(m_defaultShader, mvpMatrix);
-            renderRocket(m_defaultShader, mvpMatrix);
+            if (m_flatWorld) {
+                renderFlatWorld(m_defaultShader, mvpMatrix);
+            } else {
+                renderSolarSystem(m_defaultShader, mvpMatrix);
+                renderRocket(m_defaultShader, mvpMatrix);
+            }
 
             m_window.swapBuffers();
         }
@@ -460,6 +503,11 @@ public:
         }
         if (key == GLFW_KEY_H) {
             m_shadowsEnabled = !m_shadowsEnabled;
+        }
+        if (key == GLFW_KEY_1) {
+            m_flatWorld = !m_flatWorld;
+            m_playerCamera = m_flatWorld ? m_flatPlayerCamera : m_spacePlayerCamera;
+            m_player = m_flatWorld ? m_flatPlayer : m_spacePlayer;
         }
     }
 
@@ -489,8 +537,12 @@ private:
 
     Window m_window;
 
-    Player m_player;
+    Player m_spacePlayer;
+    Camera m_spacePlayerCamera;
+    Player m_flatPlayer;
+    Camera m_flatPlayerCamera;
     Camera m_playerCamera;
+    Player m_player;
 
     Camera m_firstCamera;
     Camera m_thirdCamera;
@@ -501,6 +553,10 @@ private:
     bool m_thirdPerson{false};
     float m_distance{1.0f};
     bool m_detachedCamera{false};
+
+    // Extra features
+    bool m_flatWorld{false};
+    float m_renderDistance{40.0f};
 
     // Shader for default rendering and for depth rendering
     Shader m_testShader;
@@ -517,6 +573,7 @@ private:
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;
     std::vector<GPUMesh> m_rocket;
+    std::vector<GPUMesh> m_tile;
     Texture m_texture;
     Texture m_normalMap;
     bool m_useMaterial{true};
