@@ -17,7 +17,7 @@ public:
     void Draw() const;
 
 public:
-    float m_distance{5.0f};
+    float m_distance{7.0f};
     glm::ivec2 m_resolution{526};
 
 private:

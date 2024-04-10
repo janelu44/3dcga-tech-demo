@@ -316,6 +316,7 @@ public:
         glUniform1i(2, 12);
 
         m_minimap.Draw();
+        glEnable(GL_DEPTH_TEST);
     }
 
     void updateSolarSystem() {
@@ -632,7 +633,7 @@ public:
 
 private:
     long long frametime{ 0 };
-    long long frametimeScale{ 0 };
+    float frametimeScale{ 0 };
     long long lastFrameTimestamp{ -1 };
 
     const glm::vec3 INITIAL_POSITION = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
