@@ -383,30 +383,14 @@ public:
             glUniform1i(4, GL_FALSE);
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
             glUniform1i(8, GL_FALSE);
-
-            // ioan
-            glm::mat4 ioanPos = sunPos;
-            ioanPos = glm::translate(ioanPos, ioanPath.evaluate(ioan.orbitProgress));
-            ioanPos = glm::translate(ioanPos, glm::vec3(ioan.orbitSize, 0, 0));
-            glm::mat4 ioanRot = glm::rotate(ioanPos, glm::radians(ioan.revolutionProgress),
-                glm::vec3(0, 1, 0));
-            glm::mat4 ioanNormal = glm::inverseTranspose(glm::mat3(ioanRot));
-            glm::mat4 ioanScale = glm::scale(ioanRot, glm::vec3(ioan.size));
-
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(ioanScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(ioanNormal));
-            glUniform1i(4, GL_FALSE);
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
-            glUniform1i(8, GL_FALSE);
-
             mesh.draw(shader);
         }
     }
 
     void updateIoanSystem() {
         ioan.revolutionProgress += ioan.revolutionSpeed * frametimeScale;
-        ioan.orbitProgress += ioan.orbitSpeed * frametimeScale;
-        ioan.orbitProgress = (ioan.orbitProgress >= 1.0f) ? ioan.orbitProgress - 1.0f : ioan.orbitProgress;
+        for (int i = 0; i < 3; i++)
+            ioanProgress[i] = ioanPath.advance(ioanProgress[i], ioan.orbitSpeed * frametimeScale);
     }
 
     void renderIoanSystem(const Shader& shader, glm::mat4 mvpMatrix) {
@@ -429,11 +413,8 @@ public:
                 {1.0f, 1.0f, 0.0f}
             };
             for (int i = 0; i < 3; i++) {
-                float orbitProgress = ioan.orbitProgress + i / 3.0f;
-                orbitProgress = (orbitProgress >= 1.0f) ? orbitProgress - 1.0f : orbitProgress;
-
                 glm::mat4 ioanPos = glm::mat4(1.0f);
-                ioanPos = glm::translate(ioanPos, ioanPath.evaluate(orbitProgress));
+                ioanPos = glm::translate(ioanPos, ioanPath.evaluate(ioanProgress[i]));
                 ioanPos = glm::translate(ioanPos, glm::vec3(ioan.orbitSize, 0, 0));
                 glm::mat4 ioanRot = glm::rotate(ioanPos, glm::radians(ioan.revolutionProgress),
                     glm::vec3(0, 1, 0));
@@ -723,7 +704,8 @@ private:
     Planet moon{ 0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f };
 
     // de fapt ioan e sistem stabil format din trei corpuri de masa egala care orbiteaza in forma de 8
-    Planet ioan{ 0.4f, 15.0f, 0.0f, 0.0f, 0.0f, 0.005f };
+    Planet ioan{ 0.4f, 15.0f, 0.0f, 0.0f, 0.0f, 0.05f };
+    float ioanProgress[3]{ 0.0f, 0.4f, 0.8f };
     BezierPath ioanPath{
         {
         // first segment startpoint + control
