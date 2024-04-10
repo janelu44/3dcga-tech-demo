@@ -13,6 +13,7 @@ public:
 	void makeClosed();
 
 	glm::vec3 evaluate(float t);
+	float advance(float t, float l);
 
 public:
 	std::vector<BezierCurve> curves;

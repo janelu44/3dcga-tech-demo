@@ -39,3 +39,20 @@ glm::vec3 BezierPath::evaluate(float t) {
 
 	return curves[currentCurve].evaluate(currentT);
 }
+
+float BezierPath::advance(float t, float l) {
+	float normalizedT = curves.size() * t;
+
+	int currentCurve = int(normalizedT);
+	if (currentCurve == curves.size())
+		currentCurve -= 1;
+	float currentT = normalizedT - currentCurve;
+
+	currentT = curves[currentCurve].advance(currentT, l);
+	while (l > 0.0f) {
+		currentCurve = (currentCurve + 1) % curves.size();
+		currentT = curves[currentCurve].advance(0.0f, l);
+	}
+
+	return (currentCurve + currentT) / curves.size();
+}
