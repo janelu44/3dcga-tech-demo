@@ -242,6 +242,7 @@ public:
             glm::mat4 lightSpaceMatrix = shadowProjectionMatrix * lightViewMatrix;
 
             renderSolarSystem(m_shadowShader, lightSpaceMatrix, false);
+            renderIoanSystem(m_shadowShader, lightSpaceMatrix);
             renderRocket(m_shadowShader, lightSpaceMatrix, false);
         }
     }
@@ -296,6 +297,7 @@ public:
         glEnable(GL_DEPTH_TEST);
 
         renderSolarSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        renderIoanSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
         renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
     }
 
@@ -319,10 +321,6 @@ public:
 
         moon.revolutionProgress += moon.revolutionSpeed;
         moon.orbitProgress += moon.orbitSpeed;
-
-        ioan.revolutionProgress += ioan.revolutionSpeed;
-        ioan.orbitProgress += ioan.orbitSpeed;
-        ioan.orbitProgress = (ioan.orbitProgress >= 1.0f) ? ioan.orbitProgress - 1.0f : ioan.orbitProgress;
     }
 
     void renderSolarSystem(const Shader& shader, glm::mat4 mvpMatrix, bool renderSun = true) {
@@ -401,6 +399,53 @@ public:
             glUniform1i(8, GL_FALSE);
 
             mesh.draw(shader);
+        }
+    }
+
+    void updateIoanSystem() {
+        ioan.revolutionProgress += ioan.revolutionSpeed;
+        ioan.orbitProgress += ioan.orbitSpeed;
+        ioan.orbitProgress = (ioan.orbitProgress >= 1.0f) ? ioan.orbitProgress - 1.0f : ioan.orbitProgress;
+    }
+
+    void renderIoanSystem(const Shader& shader, glm::mat4 mvpMatrix) {
+        for (GPUMesh& mesh : m_meshes) {
+            shader.bind();
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glm::vec3 lightPos = glm::vec3(0.0f);
+            glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
+            glUniform3fv(6, 1, glm::value_ptr(lightPos));
+
+            glUniform1i(20, m_shadowsEnabled);
+            m_shadowMapFBO.BindForReading(GL_TEXTURE9);
+            glUniform1i(21, 9);
+            glUniform1f(22, 0.15f);
+
+            // IOAN Alpha Beta Gamma
+            glm::vec3 colors[3] = {
+                {0.0f, 0.7f, 0.9f},
+                {1.0f, 0.0f, 0.5f},
+                {1.0f, 1.0f, 0.0f}
+            };
+            for (int i = 0; i < 3; i++) {
+                float orbitProgress = ioan.orbitProgress + i / 3.0f;
+                orbitProgress = (orbitProgress >= 1.0f) ? orbitProgress - 1.0f : orbitProgress;
+
+                glm::mat4 ioanPos = glm::mat4(1.0f);
+                ioanPos = glm::translate(ioanPos, ioanPath.evaluate(orbitProgress));
+                ioanPos = glm::translate(ioanPos, glm::vec3(ioan.orbitSize, 0, 0));
+                glm::mat4 ioanRot = glm::rotate(ioanPos, glm::radians(ioan.revolutionProgress),
+                    glm::vec3(0, 1, 0));
+                glm::mat4 ioanNormal = glm::inverseTranspose(glm::mat3(ioanRot));
+                glm::mat4 ioanScale = glm::scale(ioanRot, glm::vec3(ioan.size));
+
+                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(ioanScale));
+                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(ioanNormal));
+                glUniform1i(4, GL_FALSE);
+                glUniform3fv(7, 1, glm::value_ptr(colors[i]));
+                glUniform1i(8, GL_FALSE);
+                mesh.draw(shader);
+            }
         }
     }
 
@@ -508,6 +553,7 @@ public:
             gui();
 
             updateSolarSystem();
+            updateIoanSystem();
             updateCamera();
 
             // Update projection and mvp matrices
@@ -536,6 +582,7 @@ public:
             // Renders
             renderCubeMap(m_cubemapShader);
             renderSolarSystem(m_defaultShader, mvpMatrix);
+            renderIoanSystem(m_defaultShader, mvpMatrix);
             renderRocket(m_defaultShader, mvpMatrix);
             if (m_minimapEnabled) renderMinimap();
 
@@ -662,14 +709,23 @@ private:
     Planet sun{ 3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f };
     Planet earth{ 1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f };
     Planet moon{ 0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f };
-    Planet ioan{ 1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.005f };
 
+    // de fapt ioan e sistem stabil format din trei corpuri de masa egala care orbiteaza in forma de 8
+    Planet ioan{ 0.4f, 15.0f, 0.0f, 0.0f, 0.0f, 0.005f };
     BezierPath ioanPath{
-        {{1.0f, 0.0f, -1.0f}, {2.0f, 0.0f, -1.0f}, {2.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
         {
-            {{-1.0f, 0.0f, -1.0f}, {0.0f, 0.0f, -1.0f}},
-            {{-1.0f, 0.0f, 1.0f}, {-2.0f, 0.0f, 1.0f}},
+        // first segment startpoint + control
+            {3.0f, 1.0f, -1.0f}, {4.0f, 1.5f, -1.0f},
+        // first segment endpoint + control
+            {4.0f, 0.0f, 1.0f}, {3.0f, 0.0f, 1.0f}
         },
+        {
+        // second segment endpoint + control
+            {{-3.0f, 0.0f, -1.0f}, {-2.0f, 0.0f, -1.0f}},
+        // third segment endpoint + control
+            {{-3.0f, -1.0f, 1.0f}, {-4.0f, -0.5f, 1.0f}},
+        },
+        // fouth segment autofill
         true
     };
 };
