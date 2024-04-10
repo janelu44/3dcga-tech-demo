@@ -5,7 +5,6 @@
 #include "texture.h"
 #include "stb/stb_image.h"
 #include "shadow/shadow_directions.h"
-#include "shadow/shadow_map_fbo.h"
 #include "planet_system.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -219,7 +218,7 @@ public:
             glm::mat4 m_lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
             glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
 
-//            planetSystem.drawShadowMap(m_shadowShader, m_lightSpaceMatrix);
+            planetSystem.draw(m_lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true, false);
             renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
         }
     }
@@ -230,13 +229,6 @@ public:
         for (GPUMesh &mesh: m_cockpit) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
-            if (mesh.hasTextureCoords()) {
-                m_texture.bind(GL_TEXTURE0);
-                glUniform1i(3, 0);
-                glUniform1i(4, GL_TRUE);
-            } else {
-                glUniform1i(4, GL_FALSE);
-            }
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
@@ -250,19 +242,12 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            if (!m_thirdPerson && renderCockpit) mesh.draw(m_defaultShader);
+            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
         for (GPUMesh &mesh: m_rocket) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            if (mesh.hasTextureCoords()) {
-                m_texture.bind(GL_TEXTURE0);
-                glUniform1i(3, 0);
-                glUniform1i(4, GL_TRUE);
-            } else {
-                glUniform1i(4, GL_FALSE);
-            }
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
@@ -288,7 +273,7 @@ public:
 //            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
 //            glUniform1i(7, 4);
             glUniform1i(8, GL_TRUE);
-            if (m_thirdPerson || !renderCockpit) mesh.draw(m_defaultShader);
+            if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
     }
 
@@ -315,10 +300,21 @@ public:
 
     void gui() {
         ImGui::Begin("Debug");
-        const char *skyboxOptions[] = {"Space", "Lake"};
-        ImGui::Text("Skybox");
-        ImGui::SameLine(guiValues.sameLineOffset);
-        ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+
+        ImGui::BeginTabBar("#tab_bar");
+        if (ImGui::BeginTabItem("Planet system")) {
+            planetSystem.drawGui();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Misc")) {
+            const char *skyboxOptions[] = {"Space", "Lake"};
+            ImGui::Text("Skybox");
+            ImGui::SameLine(guiValues.sameLineOffset);
+            ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
+
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
 
         ImGui::End();
     }
@@ -330,9 +326,7 @@ public:
             m_window.updateInput();
             gui();
 
-            continue;
-
-//            planetSystem.update();
+            planetSystem.update();
             updateCamera();
 
             // Update projection and mvp matrices
@@ -345,7 +339,7 @@ public:
             m_viewMatrix = m_camera.viewMatrix();
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
-//            if(m_shadowsEnabled) renderShadowMap();
+            if(m_shadowsEnabled) renderShadowMap();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -359,7 +353,7 @@ public:
 
             // Renders
             renderCubeMap(m_cubemapShader);
-//            planetSystem.draw(mvpMatrix);
+            planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, true);
             renderRocket(m_defaultShader, mvpMatrix);
 
             m_window.swapBuffers();
@@ -460,7 +454,7 @@ private:
     glm::mat4 m_viewMatrix;
     glm::mat4 m_modelMatrix{1.0f};
 
-//    PlanetSystem planetSystem;
+    PlanetSystem planetSystem;
 };
 
 int main() {
