@@ -15,29 +15,19 @@ class PlanetSystem {
     std::map<std::string, Planet *> planets;
     glm::vec3 lightPos = glm::vec3(0.0f);
 
-    Shader sunShader = ShaderBuilder()
+    Shader colorShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
             .addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl")
             .build();
-    Planet sun = Planet("resources/meshes/sphere.obj", sunShader);
-
-    Shader earthShader = ShaderBuilder()
+    Shader textureShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
             .addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl")
             .build();
-    Planet earth = Planet("resources/meshes/sphere.obj", earthShader);
 
-    Shader moonShader = ShaderBuilder()
-            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
-            .addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl")
-            .build();
-    Planet moon = Planet("resources/meshes/sphere.obj", moonShader);
-
-    Shader marsShader = ShaderBuilder()
-            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
-            .addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl")
-            .build();
-    Planet mars = Planet("resources/meshes/sphere.obj", marsShader);
+    Planet sun = Planet("resources/meshes/sphere.obj", colorShader);
+    Planet earth = Planet("resources/meshes/sphere.obj", textureShader);
+    Planet moon = Planet("resources/meshes/sphere.obj", colorShader);
+    Planet mars = Planet("resources/meshes/sphere.obj", textureShader);
 
 public:
     PlanetSystem();
