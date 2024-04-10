@@ -15,21 +15,11 @@ layout(location = 30) uniform sampler2D texColor;
 layout(location = 31) uniform sampler2D texNormal;
 layout(location = 32) uniform bool useNormalMap = false;
 
-uniform samplerCube cubemap;
-
 in vec3 fragPos;
 in vec3 fragNormal;
-in vec3 fragKd;
-in vec3 fragKs;
-in float fragShininess;
-in float fragRoughness;
-in vec2 fragTexCoord;
-in vec3 fragCubemapCoord;
 
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-    vec3 I = normalize(fragPos - viewPos);
-    vec3 R = reflect(I, normalize(fragNormal));
-    fragColor = texture(cubemap, normalize(R));
+    fragColor = vec4(forceColor, 1.0);
 }

@@ -16,8 +16,8 @@ Player::Player(Window* pWindow, const glm::vec3 &pos, const glm::vec3 &forward, 
         : position(pos), forward(glm::normalize(forward)), m_pWindow(pWindow) {
 }
 
-void Player::updateInput() {
-    constexpr float moveSpeed = 0.02f;
+void Player::updateInput(long long frametime) {
+    const float moveSpeed = 0.02f * frametime;
 
     glm::vec3 localMoveDelta{0};
     const glm::vec3 right = glm::normalize(glm::cross(forward, up));

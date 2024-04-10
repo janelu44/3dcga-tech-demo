@@ -12,7 +12,7 @@ class Player {
 public:
     Player(Window* pWindow, const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up = { 0, 1, 0 });
 
-    void updateInput();
+    void updateInput(long long frametime);
 
 public:
     glm::vec3 position { 0 };

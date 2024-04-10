@@ -34,7 +34,24 @@ void Camera::rotateY(float angle) {
     up = glm::normalize(glm::cross(forward, horAxis));
 }
 
-void Camera::updateInput(bool captureCursor) {
+void Camera::update(bool captureCursor, long long frametime) {
+    if (moveToTarget) {
+        glm::qua start = glm::lookAt(position, position + initialForward, initialUp);
+        glm::qua end = glm::lookAt(position, position + targetForward, targetUp);
+
+        interpolationProgress += interpolationSpeed * frametime;
+        glm::qua interp = glm::slerp(start, end, interpolationProgress);
+
+        forward = glm::inverse(interp) * glm::vec3(0.0f, 0.0f, -1.0f);
+        up = glm::inverse(interp) * glm::vec3(0.0f, 1.0f, 0.0f);
+
+        if (interpolationProgress >= 1.0f) {
+            moveToTarget = false;
+            forward = targetForward;
+            up = targetUp;
+        }
+    }
+
     constexpr float lookSpeed = 0.0015f;
 
     const glm::dvec2 cursorPos = m_pWindow->getCursorPos();
@@ -43,11 +60,20 @@ void Camera::updateInput(bool captureCursor) {
 
     if (ImGui::GetIO().WantCaptureMouse) return;
 
-    if (captureCursor) {
+    if (captureCursor && !moveToTarget) {
         if (delta.x != 0.0f)
             rotateY(-delta.x);
         if (delta.y != 0.0f)
             rotateX(-delta.y);
     }
+}
 
+void Camera::setTarget(const glm::vec3& futureForward, const glm::vec3& futureUp, const float timeToEnd) {
+    moveToTarget = true;
+    initialForward = forward;
+    initialUp = up;
+    targetForward = futureForward;
+    targetUp = futureUp;
+    interpolationSpeed = 1.0f / timeToEnd;
+    interpolationProgress = 0.0f;
 }

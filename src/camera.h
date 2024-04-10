@@ -11,10 +11,11 @@ class Camera {
 public:
     Camera(Window* pWindow, const glm::vec3& position, const glm::vec3& forward);
 
-    void updateInput(bool captureCursor = false);
+    void update(bool captureCursor, long long currentTime);
     glm::mat4 viewMatrix() const;
     void rotateX(float angle);
     void rotateY(float angle);
+    void setTarget(const glm::vec3& futureForward, const glm::vec3& futureUp, const float timeToEnd);
 
 public:
     glm::vec3 position { 0 };
@@ -23,6 +24,14 @@ public:
     float fov = 70.0f;
     float zNear = 0.01f;
     float zFar = 100.0f;
+
+    bool moveToTarget{ false };
+    glm::vec3 initialForward;
+    glm::vec3 initialUp;
+    glm::vec3 targetForward;
+    glm::vec3 targetUp;
+    float interpolationSpeed;
+    float interpolationProgress;
 
 private:
     static constexpr glm::vec3 s_yAxis { 0, 1, 0 };
