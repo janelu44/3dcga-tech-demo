@@ -43,12 +43,15 @@ void Minimap::Init(int width, int height) {
     // Bind default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    float xRes = float(width) / 2000.0f;
+    float yRes = float(height) / 2000.0f;
+
     // Create a quad vao for rendering the minimap
     std::vector<glm::vec3> quadVertices{
-            {-1.0f, -1.0f, -1.0f},
-            {1.0f,  -1.0f, -1.0f},
-            {1.0f,  1.0f,  -1.0f},
-            {-1.0f, 1.0f,  -1.0f},
+            {-1.0f * xRes, -1.0f * yRes, -1.0f},
+            {1.0f * xRes,  -1.0f * yRes, -1.0f},
+            {1.0f * xRes,  1.0f * yRes,  -1.0f},
+            {-1.0f * xRes, 1.0f * yRes,  -1.0f},
     };
 
     std::vector<glm::uvec3> quadTriangles{

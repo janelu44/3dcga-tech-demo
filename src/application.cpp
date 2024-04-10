@@ -88,7 +88,7 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
-        m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
+        m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
         m_minimap.Init(m_minimapResolution, m_minimapResolution);
@@ -125,6 +125,11 @@ public:
             minimapBuilder.addStage(GL_VERTEX_SHADER, "shaders/minimap_vert.glsl");
             minimapBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimap_frag.glsl");
             m_minimapShader = minimapBuilder.build();
+
+            ShaderBuilder minimapColorBuilder;
+            minimapColorBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            minimapColorBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl");
+            m_minimapColorShader = minimapColorBuilder.build();
 
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
@@ -243,14 +248,44 @@ public:
         }
     }
 
+    void renderMinimapRocket(Shader& shader, glm::mat4 mvpMatrix) {
+        for (GPUMesh &mesh: m_rocket) {
+            shader.bind();
+
+            glm::vec3 rocketColor = m_realisticMinimap ? glm::vec3(0.7f, 0.7f, 0.7f) : glm::vec3(1.0f, 0.1f, 0.1f);
+            glm::vec3 rocketFwd = glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 playerFwdXZ = glm::normalize(glm::vec3(m_player.forward.x, 0.0f, m_player.forward.z));
+
+            float angle = glm::acos(glm::dot(rocketFwd, playerFwdXZ));
+            glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, playerFwdXZ));
+
+            glm::mat4 rocketPos = glm::translate(glm::mat4(1.0f), glm::vec3(m_player.position.x, 9.0f, m_player.position.z));
+            glm::mat4 rocketRot = glm::rotate(rocketPos, angle, rotationAxis);
+            glm::mat4 rocketScale = glm::scale(rocketRot, glm::vec3(0.25f + m_minimap.m_distance / 20.0f));
+            glm::mat3 rocketNormal = glm::inverseTranspose(glm::mat3(rocketRot));
+
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(rocketScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(rocketNormal));
+            glUniform3fv(7, 1, glm::value_ptr(rocketColor));
+            glUniform1i(8, GL_TRUE);
+            glUniform1i(20, GL_FALSE);
+
+            mesh.draw(shader);
+        }
+    }
+
     void renderMinimapTexture() {
-        glm::mat4 minimapProjectionMatrix = glm::perspective(
-                glm::radians(90.0f),
-                float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y),
+        float resXY = float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y);
+        float resYX = float(m_minimap.m_resolution.y) / float(m_minimap.m_resolution.x);
+        glm::mat4 minimapProjectionMatrix = glm::ortho(
+                -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
+                0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
+                -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
+                0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
                 m_camera.zNear,
-                m_camera.zFar
-        );
-        glm::vec3 minimapCenter = m_player.position + m_minimap.m_distance * glm::vec3(0.0f, 1.0f, 0.0f);
+                m_camera.zFar);
+        glm::vec3 minimapCenter = glm::vec3(m_player.position.x, 10.0f, m_player.position.z);
         glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
         glm::mat4 minimapSpaceMatrix = minimapProjectionMatrix * minimapViewMatrix;
 
@@ -262,15 +297,15 @@ public:
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        renderSolarSystem(m_defaultShader, minimapSpaceMatrix);
-        renderRocket(m_defaultShader, minimapSpaceMatrix, false);
+        renderSolarSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
     }
 
     void renderMinimap() {
         m_minimapShader.bind();
 
-        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, -0.5f, 0.0f));
-        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(0.175f, 0.175f, 1.0f));
+        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.0f));
+        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(0.4f, 0.4f, 1.0f));
 
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
@@ -399,8 +434,8 @@ public:
             glUniform1i(21, 9);
             glUniform1f(22, 0.01f);
 
-            glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
-            glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
+            glm::vec3 rocketFwd = glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 rocketUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
             float angle = glm::acos(glm::dot(rocketFwd, m_player.forward));
             glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, m_player.forward));
@@ -484,7 +519,7 @@ public:
             renderCubeMap(m_cubemapShader);
             renderSolarSystem(m_defaultShader, mvpMatrix);
             renderRocket(m_defaultShader, mvpMatrix);
-            renderMinimap();
+            if (m_minimapEnabled) renderMinimap();
 
             m_window.swapBuffers();
         }
@@ -506,11 +541,14 @@ public:
         if (key == GLFW_KEY_M) {
             m_minimapEnabled = !m_minimapEnabled;
         }
+        if (key == GLFW_KEY_N) {
+            m_realisticMinimap = !m_realisticMinimap;
+        }
         if (key == GLFW_KEY_EQUAL) {
-            m_minimap.m_distance += 1.0f;
+            if (m_minimap.m_distance > 2.0f) m_minimap.m_distance -= 1.0f;
         }
         if (key == GLFW_KEY_MINUS) {
-            m_minimap.m_distance -= 1.0f;
+            m_minimap.m_distance += 1.0f;
         }
     }
 
@@ -560,11 +598,13 @@ private:
     Shader m_cubemapShader;
     Shader m_reflectionShader;
     Shader m_minimapShader;
+    Shader m_minimapColorShader;
 
     // Shadow Mapping
     int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
+    bool m_realisticMinimap{false};
 
     // Minimap
     Minimap m_minimap;
