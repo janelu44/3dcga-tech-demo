@@ -305,6 +305,8 @@ public:
     void renderMinimap() {
         m_minimapShader.bind();
 
+        glDisable(GL_DEPTH_TEST);
+
         glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.0f));
         glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(0.4f, 0.4f, 1.0f));
 
@@ -458,7 +460,7 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            //            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
+            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
         for (GPUMesh& mesh : m_rocket) {
