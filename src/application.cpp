@@ -123,10 +123,6 @@ public:
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
-
-        sun = {3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f};
-        earth = {1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f};
-        moon = {0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f};
     }
 
     void loadCubemaps() {
@@ -554,7 +550,9 @@ private:
     glm::mat4 m_viewMatrix;
     glm::mat4 m_modelMatrix{1.0f};
 
-    Planet sun, earth, moon;
+    Planet sun{ 3.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f };
+    Planet earth{ 1.0f, 7.0f, 0.0f, 0.0f, 1.0f, 0.3f };
+    Planet moon{ 0.2f, 2.0f, 0.0f, 0.0f, 0.0f, 0.5f };
 };
 
 int main() {
