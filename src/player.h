@@ -21,8 +21,9 @@ public:
 
     struct Movement {
         float speed{ 0.0f };
-        float accel{ 0.0003f };
-        float decel{ 0.0005f };
+        const float accel{ 0.00003f };
+        const float decel{ 0.00005f };
+        const float speedCap{ 0.1f };
 
         void update(int dir, float frametime) {
             if (dir == -1) {
@@ -45,6 +46,8 @@ public:
                         speed = 0.0f;
                 }
             }
+
+            speed = (speed < 0.0f ? -1.0f : 1.0f) * std::min(abs(speed), speedCap);
         }
     };
 
