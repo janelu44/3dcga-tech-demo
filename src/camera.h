@@ -37,5 +37,4 @@ private:
     static constexpr glm::vec3 s_yAxis { 0, 1, 0 };
     const Window* m_pWindow;
     glm::dvec2 m_prevCursorPos { 0 };
-    long long m_prevTime{ 0 };
 };

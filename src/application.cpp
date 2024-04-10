@@ -47,38 +47,38 @@ struct Planet {
 class Application {
 public:
     Application()
-            : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
-              m_texture("resources/textures/mars.jpg"),
-              m_normalMap("resources/normal/mars_normal.jpg"),
-              m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_playerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_firstCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_thirdCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD) {
+        : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL45),
+        m_texture("resources/textures/mars.jpg"),
+        m_normalMap("resources/normal/mars_normal.jpg"),
+        m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+        m_playerCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+        m_firstCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+        m_thirdCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
+        m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD) {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
             else if (action == GLFW_RELEASE)
                 onKeyReleased(key, mods);
-        });
-//        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
+            });
+        //        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
         m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
             if (action == GLFW_PRESS)
                 onMouseClicked(button, mods);
             else if (action == GLFW_RELEASE)
                 onMouseReleased(button, mods);
-        });
+            });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             m_distance += offset.y * -0.1f;
-        });
-        m_window.registerWindowResizeCallback([&](const glm::ivec2 &size) {
+            });
+        m_window.registerWindowResizeCallback([&](const glm::ivec2& size) {
             m_projectionMatrix = glm::perspective(
-                    glm::radians(m_camera.fov),
-                    m_window.getAspectRatio(),
-                    m_camera.zNear,
-                    m_camera.zFar
+                glm::radians(m_camera.fov),
+                m_window.getAspectRatio(),
+                m_camera.zNear,
+                m_camera.zFar
             );
-        });
+            });
         m_window.setMouseCapture(m_captureCursor);
 
         m_projectionMatrix = glm::perspective(
@@ -133,7 +133,8 @@ public:
             minimapColorBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl");
             m_minimapColorShader = minimapColorBuilder.build();
 
-        } catch (ShaderLoadingException e) {
+        }
+        catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
     }
@@ -145,12 +146,12 @@ public:
             glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
 
             int width, height, nrChannels;
-            unsigned char *data;
+            unsigned char* data;
             for (unsigned int i = 0; i < m_skyboxImages[x].size(); i++) {
                 data = stbi_load(m_skyboxImages[x][i].c_str(), &width, &height, &nrChannels, 0);
                 glTexImage2D(
-                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
                 );
             }
 
@@ -194,7 +195,7 @@ public:
 
         GLuint ibo;
         glCreateBuffers(1, &ibo);
-        glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)),skyboxTriangles.data(), 0);
+        glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)), skyboxTriangles.data(), 0);
 
         GLuint vao;
         glCreateVertexArrays(1, &vao);
@@ -208,7 +209,7 @@ public:
         m_cubemapVao = vao;
     }
 
-    void renderCubeMap(const Shader &shader) {
+    void renderCubeMap(const Shader& shader) {
         glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
         glDepthMask(GL_FALSE);
         shader.bind();
@@ -224,10 +225,10 @@ public:
 
     void renderShadowMap() {
         glm::mat4 shadowProjectionMatrix = glm::perspective(
-                glm::radians(90.0f),
-                1.0f,
-                m_camera.zNear,
-                m_camera.zFar
+            glm::radians(90.0f),
+            1.0f,
+            m_camera.zNear,
+            m_camera.zFar
         );
 
         glViewport(0, 0, m_shadowMapSize, m_shadowMapSize);
@@ -248,7 +249,7 @@ public:
     }
 
     void renderMinimapRocket(Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh &mesh: m_rocket) {
+        for (GPUMesh& mesh : m_rocket) {
             shader.bind();
 
             glm::vec3 rocketColor = m_realisticMinimap ? glm::vec3(0.7f, 0.7f, 0.7f) : glm::vec3(1.0f, 0.1f, 0.1f);
@@ -278,12 +279,12 @@ public:
         float resXY = float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y);
         float resYX = float(m_minimap.m_resolution.y) / float(m_minimap.m_resolution.x);
         glm::mat4 minimapProjectionMatrix = glm::ortho(
-                -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
-                0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
-                -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
-                0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
-                m_camera.zNear,
-                m_camera.zFar);
+            -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
+            0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
+            -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
+            0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
+            m_camera.zNear,
+            m_camera.zFar);
         glm::vec3 minimapCenter = glm::vec3(m_player.position.x, 10.0f, m_player.position.z);
         glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
         glm::mat4 minimapSpaceMatrix = minimapProjectionMatrix * minimapViewMatrix;
@@ -316,15 +317,15 @@ public:
     }
 
     void updateSolarSystem() {
-        earth.revolutionProgress += earth.revolutionSpeed;
-        earth.orbitProgress += earth.orbitSpeed;
+        earth.revolutionProgress += earth.revolutionSpeed * frametimeScale;
+        earth.orbitProgress += earth.orbitSpeed * frametimeScale;
 
-        moon.revolutionProgress += moon.revolutionSpeed;
-        moon.orbitProgress += moon.orbitSpeed;
+        moon.revolutionProgress += moon.revolutionSpeed * frametimeScale;
+        moon.orbitProgress += moon.orbitSpeed * frametimeScale;
     }
 
     void renderSolarSystem(const Shader& shader, glm::mat4 mvpMatrix, bool renderSun = true) {
-        for (GPUMesh &mesh: m_meshes) {
+        for (GPUMesh& mesh : m_meshes) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             glm::vec3 lightPos = glm::vec3(0.0f);
@@ -353,7 +354,7 @@ public:
             earthPos = glm::rotate(earthPos, glm::radians(earth.orbitProgress), glm::vec3(0, 1, 0));
             earthPos = glm::translate(earthPos, glm::vec3(earth.orbitSize, 0, 0));
             glm::mat4 earthRot = glm::rotate(earthPos, glm::radians(earth.revolutionProgress - earth.orbitProgress),
-                                             glm::vec3(0, 1, 0));
+                glm::vec3(0, 1, 0));
             glm::mat3 earthNormal = glm::inverseTranspose(glm::mat3(earthRot));
             glm::mat4 earthScale = glm::scale(earthRot, glm::vec3(earth.size));
 
@@ -373,7 +374,7 @@ public:
             moonPos = glm::rotate(moonPos, glm::radians(moon.orbitProgress), glm::vec3(0, 1, 0));
             moonPos = glm::translate(moonPos, glm::vec3(moon.orbitSize, 0, 0));
             glm::mat4 moonRot = glm::rotate(moonPos, glm::radians(moon.revolutionProgress - moon.orbitProgress),
-                                            glm::vec3(0, 1, 0));
+                glm::vec3(0, 1, 0));
             glm::mat4 moonNormal = glm::inverseTranspose(glm::mat3(moonRot));
             glm::mat4 moonScale = glm::scale(moonRot, glm::vec3(moon.size));
 
@@ -403,8 +404,8 @@ public:
     }
 
     void updateIoanSystem() {
-        ioan.revolutionProgress += ioan.revolutionSpeed;
-        ioan.orbitProgress += ioan.orbitSpeed;
+        ioan.revolutionProgress += ioan.revolutionSpeed * frametimeScale;
+        ioan.orbitProgress += ioan.orbitSpeed * frametimeScale;
         ioan.orbitProgress = (ioan.orbitProgress >= 1.0f) ? ioan.orbitProgress - 1.0f : ioan.orbitProgress;
     }
 
@@ -452,14 +453,15 @@ public:
     void renderRocket(const Shader& shader, glm::mat4 mvpMatrix, bool renderCockpit = true) {
         glm::vec3 lightPos = glm::vec3(0.0f);
 
-        for (GPUMesh &mesh: m_cockpit) {
+        for (GPUMesh& mesh : m_cockpit) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
             if (mesh.hasTextureCoords()) {
                 m_texture.bind(GL_TEXTURE0);
                 glUniform1i(3, 0);
                 glUniform1i(4, GL_TRUE);
-            } else {
+            }
+            else {
                 glUniform1i(4, GL_FALSE);
             }
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
@@ -475,17 +477,18 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-//            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
+            //            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
-        for (GPUMesh &mesh: m_rocket) {
+        for (GPUMesh& mesh : m_rocket) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             if (mesh.hasTextureCoords()) {
                 m_texture.bind(GL_TEXTURE0);
                 glUniform1i(3, 0);
                 glUniform1i(4, GL_TRUE);
-            } else {
+            }
+            else {
                 glUniform1i(4, GL_FALSE);
             }
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
@@ -514,15 +517,13 @@ public:
     }
 
     void updateCamera() {
-        long long time = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-
-        m_playerCamera.update(m_captureCursor && !m_detachedCamera, time);
-        m_firstCamera.update(m_captureCursor && !m_thirdPerson, time);
-        m_thirdCamera.update(m_captureCursor && m_thirdPerson, time);
+        m_playerCamera.update(m_captureCursor && !m_detachedCamera, frametime);
+        m_firstCamera.update(m_captureCursor && !m_thirdPerson, frametime);
+        m_thirdCamera.update(m_captureCursor && m_thirdPerson, frametime);
 
         m_player.forward = m_playerCamera.forward;
         m_player.up = m_playerCamera.up;
-        m_player.updateInput();
+        m_player.updateInput(frametime);
 
         m_playerCamera.position = m_player.position;
         m_firstCamera.position = m_player.position;
@@ -537,7 +538,7 @@ public:
 
     void gui() {
         ImGui::Begin("Debug");
-        const char *skyboxOptions[] = {"Space", "Lake"};
+        const char* skyboxOptions[] = { "Space", "Lake" };
         ImGui::Text("Skybox");
         ImGui::SameLine(guiValues.sameLineOffset);
         ImGui::Combo("##Skybox", &guiValues.skybox, skyboxOptions, 2);
@@ -549,6 +550,13 @@ public:
         loadCubemaps();
 
         while (!m_window.shouldClose()) {
+            const long long currentFrameTimestamp = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+            if (lastFrameTimestamp != -1) {
+                frametime = currentFrameTimestamp - lastFrameTimestamp;
+                frametimeScale = frametime / 16.67f; // scale for preserving 60fps movement in old code
+            }
+            lastFrameTimestamp = currentFrameTimestamp;
+
             m_window.updateInput();
             gui();
 
@@ -558,16 +566,16 @@ public:
 
             // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
-                    glm::radians(m_camera.fov),
-                    m_window.getAspectRatio(),
-                    m_camera.zNear,
-                    m_camera.zFar
+                glm::radians(m_camera.fov),
+                m_window.getAspectRatio(),
+                m_camera.zNear,
+                m_camera.zFar
             );
             m_viewMatrix = m_camera.viewMatrix();
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
-            if(m_shadowsEnabled) renderShadowMap();
-            if(m_minimapEnabled) renderMinimapTexture();
+            if (m_shadowsEnabled) renderShadowMap();
+            if (m_minimapEnabled) renderMinimapTexture();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -620,7 +628,7 @@ public:
     void onKeyReleased(int key, int mods) {
     }
 
-    void onMouseMove(const glm::dvec2 &cursorPos) {
+    void onMouseMove(const glm::dvec2& cursorPos) {
     }
 
     void onMouseClicked(int button, int mods) {
@@ -640,6 +648,10 @@ public:
     }
 
 private:
+    long long frametime{ 0 };
+    long long frametimeScale{ 0 };
+    long long lastFrameTimestamp{ -1 };
+
     const glm::vec3 INITIAL_POSITION = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
     const glm::vec3 INITIAL_FORWARD = glm::vec3(-5.0f, -10.0f, 0.5f);
 

@@ -34,15 +34,12 @@ void Camera::rotateY(float angle) {
     up = glm::normalize(glm::cross(forward, horAxis));
 }
 
-void Camera::update(bool captureCursor, long long currentTime) {
-    long long timeDelta = currentTime - m_prevTime;
-    m_prevTime = currentTime;
-
+void Camera::update(bool captureCursor, long long frametime) {
     if (moveToTarget) {
         glm::qua start = glm::lookAt(position, position + initialForward, initialUp);
         glm::qua end = glm::lookAt(position, position + targetForward, targetUp);
 
-        interpolationProgress += interpolationSpeed * timeDelta;
+        interpolationProgress += interpolationSpeed * frametime;
         glm::qua interp = glm::slerp(start, end, interpolationProgress);
 
         forward = glm::inverse(interp) * glm::vec3(0.0f, 0.0f, -1.0f);
