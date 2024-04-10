@@ -1,4 +1,5 @@
 #include "path.h"
+#include <iostream>
 
 BezierPath::BezierPath(BezierCurve startingSection) {
 	curves.push_back(startingSection);
@@ -15,7 +16,7 @@ BezierPath::BezierPath(BezierCurve startingSection, std::vector<std::pair<glm::v
 
 void BezierPath::addSection(glm::vec3 endpoint, glm::vec3 control) {
 	glm::vec3 startpointControl = 2.0f * curves.back().points[3] - curves.back().points[2];
-	addSection(startpointControl, control, endpoint);
+	addSection(startpointControl, endpoint, control);
 }
 
 void BezierPath::addSection(glm::vec3 startpointControl, glm::vec3 endpoint, glm::vec3 endpointControl) {
@@ -23,8 +24,8 @@ void BezierPath::addSection(glm::vec3 startpointControl, glm::vec3 endpoint, glm
 }
 
 void BezierPath::makeClosed() {
-	glm::vec3 endpoint = curves.front().points[3];
-	glm::vec3 control = 2.0f * endpoint - curves.front().points[2];
+	glm::vec3 endpoint = curves.front().points[0];
+	glm::vec3 control = 2.0f * endpoint - curves.front().points[1];
 	addSection(endpoint, control);
 }
 
