@@ -17,20 +17,34 @@ Player::Player(Window* pWindow, const glm::vec3 &pos, const glm::vec3 &forward, 
 }
 
 void Player::updateInput(long long frametime) {
-    const float moveSpeed = 0.02f * frametime;
-
-    glm::vec3 localMoveDelta{0};
     const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    if (m_pWindow->isKeyPressed(GLFW_KEY_A))
-        position -= moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_D))
-        position += moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_W))
-        position += moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_S))
-        position -= moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_R))
-        position += moveSpeed * up;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_F))
-        position -= moveSpeed * up;
+
+    const auto& dirHelper = [](bool fwd, bool bck) {
+        if (!(fwd xor bck))
+            return 0;
+        return fwd ? 1 : -1;
+        };
+
+    moveRight.update(
+        dirHelper(
+            m_pWindow->isKeyPressed(GLFW_KEY_D),
+            m_pWindow->isKeyPressed(GLFW_KEY_A)
+        ),
+        frametime);
+
+    moveForward.update(
+        dirHelper(
+            m_pWindow->isKeyPressed(GLFW_KEY_W),
+            m_pWindow->isKeyPressed(GLFW_KEY_S)
+        ),
+        frametime);
+
+    moveUp.update(
+        dirHelper(
+            m_pWindow->isKeyPressed(GLFW_KEY_R),
+            m_pWindow->isKeyPressed(GLFW_KEY_F)
+        ),
+        frametime);
+
+    position += right * moveRight.speed + forward * moveForward.speed + up * moveUp.speed;
 }
