@@ -12,9 +12,9 @@ class Minimap {
 public:
     Minimap() = default;
     void Init(int width, int height);
-    void Draw() const;
     void BindForWriting() const;
     void BindForReading(GLenum TextureUnit) const;
+    void Draw() const;
 
 public:
     float m_distance{3.0f};

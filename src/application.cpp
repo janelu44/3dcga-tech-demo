@@ -274,8 +274,8 @@ public:
 
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
-        m_minimap.BindForReading(GL_TEXTURE7);
-        glUniform1i(2, 7);
+        m_minimap.BindForReading(GL_TEXTURE12);
+        glUniform1i(2, 12);
 
         m_minimap.Draw();
     }

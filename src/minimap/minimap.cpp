@@ -26,6 +26,7 @@ void Minimap::Init(int width, int height) {
     // Create the color buffer
     glGenTextures(1, &m_minimap);
     glBindTexture(GL_TEXTURE_2D, m_minimap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
     // Attach the depth buffer to the FBO
@@ -35,6 +36,9 @@ void Minimap::Init(int width, int height) {
     // Disable reads and writes to the color buffer
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
+
+    GLenum Status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (Status != GL_FRAMEBUFFER_COMPLETE) return;
 
     // Bind default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -69,11 +73,6 @@ void Minimap::Init(int width, int height) {
     glVertexArrayAttribBinding(m_vao, 0, 0);
 }
 
-void Minimap::Draw() const {
-    glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 2), GL_UNSIGNED_INT, nullptr);
-}
-
 void Minimap::BindForWriting() const {
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_minimap, 0);
@@ -83,5 +82,10 @@ void Minimap::BindForWriting() const {
 void Minimap::BindForReading(GLenum TextureUnit) const {
     glActiveTexture(TextureUnit);
     glBindTexture(GL_TEXTURE_2D, m_minimap);
+}
+
+void Minimap::Draw() const {
+    glBindVertexArray(m_vao);
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 2), GL_UNSIGNED_INT, nullptr);
 }
 

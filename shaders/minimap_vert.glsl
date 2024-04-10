@@ -11,7 +11,7 @@ out vec2 fragTexCoord;
 void main()
 {
     fragPos = (modelMatrix * vec4(position, 1)).xyz;
-    fragTexCoord = position.xy * 0.5 + 0.5;
+    fragTexCoord = (position.xy + 1.0) * 0.5;
 
     gl_Position = mvpMatrix * vec4(fragPos, 1);
 }
