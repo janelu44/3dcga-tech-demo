@@ -17,6 +17,7 @@ add_executable(FinalProject
     "src/texture.cpp"
 	"src/player.cpp"
 	"src/shadow/shadow_map_fbo.cpp"
+	"src/minimap/minimap.cpp"
 	"src/bezier/curve.cpp"
 	"src/bezier/path.cpp"
 )

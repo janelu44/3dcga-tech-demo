@@ -6,6 +6,7 @@
 #include "stb/stb_image.h"
 #include "shadow/shadow_directions.h"
 #include "shadow/shadow_map_fbo.h"
+#include "minimap/minimap.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -89,9 +90,10 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
-        m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket/rocket.obj");
+        m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
+        m_minimap.Init(m_minimapResolution, m_minimapResolution);
 
         loadCubemaps();
 
@@ -120,6 +122,16 @@ public:
             reflectionBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
             reflectionBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/reflection_frag.glsl");
             m_reflectionShader = reflectionBuilder.build();
+
+            ShaderBuilder minimapBuilder;
+            minimapBuilder.addStage(GL_VERTEX_SHADER, "shaders/minimap_vert.glsl");
+            minimapBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimap_frag.glsl");
+            m_minimapShader = minimapBuilder.build();
+
+            ShaderBuilder minimapColorBuilder;
+            minimapColorBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            minimapColorBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl");
+            m_minimapColorShader = minimapColorBuilder.build();
 
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
@@ -213,7 +225,7 @@ public:
     void renderShadowMap() {
         glm::mat4 shadowProjectionMatrix = glm::perspective(
                 glm::radians(90.0f),
-                m_window.getAspectRatio(),
+                1.0f,
                 m_camera.zNear,
                 m_camera.zFar
         );
@@ -226,12 +238,79 @@ public:
             m_shadowMapFBO.BindForWriting(dir.cubemapFace);
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-            glm::mat4 m_lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
-            glm::mat4 m_lightSpaceMatrix = shadowProjectionMatrix * m_lightViewMatrix;
+            glm::mat4 lightViewMatrix = glm::lookAt(glm::vec3(0.0f), dir.forward, dir.up);
+            glm::mat4 lightSpaceMatrix = shadowProjectionMatrix * lightViewMatrix;
 
-            renderSolarSystem(m_shadowShader, m_lightSpaceMatrix, false);
-            renderRocket(m_shadowShader, m_lightSpaceMatrix, false);
+            renderSolarSystem(m_shadowShader, lightSpaceMatrix, false);
+            renderRocket(m_shadowShader, lightSpaceMatrix, false);
         }
+    }
+
+    void renderMinimapRocket(Shader& shader, glm::mat4 mvpMatrix) {
+        for (GPUMesh &mesh: m_rocket) {
+            shader.bind();
+
+            glm::vec3 rocketColor = m_realisticMinimap ? glm::vec3(0.7f, 0.7f, 0.7f) : glm::vec3(1.0f, 0.1f, 0.1f);
+            glm::vec3 rocketFwd = glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 playerFwdXZ = glm::normalize(glm::vec3(m_player.forward.x, 0.0f, m_player.forward.z));
+
+            float angle = glm::acos(glm::dot(rocketFwd, playerFwdXZ));
+            glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, playerFwdXZ));
+
+            glm::mat4 rocketPos = glm::translate(glm::mat4(1.0f), glm::vec3(m_player.position.x, 9.0f, m_player.position.z));
+            glm::mat4 rocketRot = glm::rotate(rocketPos, angle, rotationAxis);
+            glm::mat4 rocketScale = glm::scale(rocketRot, glm::vec3(0.25f + m_minimap.m_distance / 20.0f));
+            glm::mat3 rocketNormal = glm::inverseTranspose(glm::mat3(rocketRot));
+
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(rocketScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(rocketNormal));
+            glUniform3fv(7, 1, glm::value_ptr(rocketColor));
+            glUniform1i(8, GL_TRUE);
+            glUniform1i(20, GL_FALSE);
+
+            mesh.draw(shader);
+        }
+    }
+
+    void renderMinimapTexture() {
+        float resXY = float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y);
+        float resYX = float(m_minimap.m_resolution.y) / float(m_minimap.m_resolution.x);
+        glm::mat4 minimapProjectionMatrix = glm::ortho(
+                -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
+                0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
+                -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
+                0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
+                m_camera.zNear,
+                m_camera.zFar);
+        glm::vec3 minimapCenter = glm::vec3(m_player.position.x, 10.0f, m_player.position.z);
+        glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+        glm::mat4 minimapSpaceMatrix = minimapProjectionMatrix * minimapViewMatrix;
+
+        m_minimap.BindForWriting();
+
+        glCullFace(GL_BACK);
+        glViewport(0, 0, m_minimap.m_resolution.x, m_minimap.m_resolution.y);
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+
+        renderSolarSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+    }
+
+    void renderMinimap() {
+        m_minimapShader.bind();
+
+        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.0f));
+        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(0.4f, 0.4f, 1.0f));
+
+        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
+        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
+        m_minimap.BindForReading(GL_TEXTURE12);
+        glUniform1i(2, 12);
+
+        m_minimap.Draw();
     }
 
     void updateSolarSystem() {
@@ -351,7 +430,7 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
+//            if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
         for (GPUMesh &mesh: m_rocket) {
@@ -372,8 +451,8 @@ public:
             glUniform1i(21, 9);
             glUniform1f(22, 0.01f);
 
-            glm::vec3 rocketFwd = glm::vec3(0.0f, 1.0f, 0.0f);
-            glm::vec3 rocketUp = glm::vec3(0.0f, 0.0f, 1.0f);
+            glm::vec3 rocketFwd = glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 rocketUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
             float angle = glm::acos(glm::dot(rocketFwd, m_player.forward));
             glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, m_player.forward));
@@ -385,10 +464,6 @@ public:
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
-//            glActiveTexture(GL_TEXTURE4);
-//            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
-//            glUniform1i(7, 4);
-            glUniform1i(8, GL_TRUE);
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
         }
     }
@@ -446,6 +521,7 @@ public:
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
             if(m_shadowsEnabled) renderShadowMap();
+            if(m_minimapEnabled) renderMinimapTexture();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -461,6 +537,7 @@ public:
             renderCubeMap(m_cubemapShader);
             renderSolarSystem(m_defaultShader, mvpMatrix);
             renderRocket(m_defaultShader, mvpMatrix);
+            if (m_minimapEnabled) renderMinimap();
 
             m_window.swapBuffers();
         }
@@ -478,6 +555,18 @@ public:
         }
         if (key == GLFW_KEY_H) {
             m_shadowsEnabled = !m_shadowsEnabled;
+        }
+        if (key == GLFW_KEY_M) {
+            m_minimapEnabled = !m_minimapEnabled;
+        }
+        if (key == GLFW_KEY_N) {
+            m_realisticMinimap = !m_realisticMinimap;
+        }
+        if (key == GLFW_KEY_EQUAL) {
+            if (m_minimap.m_distance > 2.0f) m_minimap.m_distance -= 1.0f;
+        }
+        if (key == GLFW_KEY_MINUS) {
+            m_minimap.m_distance += 1.0f;
         }
     }
 
@@ -522,17 +611,25 @@ private:
     float m_distance{1.0f};
     bool m_detachedCamera{false};
 
-    // Shader for default rendering and for depth rendering
+    // Shaders for default rendering and for depth rendering
     Shader m_testShader;
     Shader m_defaultShader;
     Shader m_shadowShader;
     Shader m_cubemapShader;
     Shader m_reflectionShader;
+    Shader m_minimapShader;
+    Shader m_minimapColorShader;
 
     // Shadow Mapping
     int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
+    bool m_realisticMinimap{false};
+
+    // Minimap
+    Minimap m_minimap;
+    int m_minimapResolution{1024};
+    bool m_minimapEnabled{true};
 
     std::vector<GPUMesh> m_meshes;
     std::vector<GPUMesh> m_cockpit;
@@ -552,14 +649,6 @@ private:
                     "resources/textures/space/bottom.jpg",
                     "resources/textures/space/front.jpg",
                     "resources/textures/space/back.jpg"
-            },
-            {
-                    "resources/textures/skybox/right.jpg",
-                    "resources/textures/skybox/left.jpg",
-                    "resources/textures/skybox/top.jpg",
-                    "resources/textures/skybox/bottom.jpg",
-                    "resources/textures/skybox/front.jpg",
-                    "resources/textures/skybox/back.jpg"
             }
     };
 
