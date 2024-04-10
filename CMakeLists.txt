@@ -17,8 +17,8 @@ add_executable(FinalProject
     "src/texture.cpp"
 	"src/player.cpp"
 	"src/shadow/shadow_map_fbo.cpp"
-	"src/shadow/shadow_map_fbo.h"
-	"src/shadow/shadow_directions.h"
+	"src/bezier/curve.cpp"
+	"src/bezier/path.cpp"
 )
 target_compile_features(FinalProject PRIVATE cxx_std_20)
 target_link_libraries(FinalProject PRIVATE CGFramework)
