@@ -4,6 +4,15 @@ BezierPath::BezierPath(BezierCurve startingSection) {
 	curves.push_back(startingSection);
 }
 
+BezierPath::BezierPath(BezierCurve startingSection, std::vector<std::pair<glm::vec3, glm::vec3>> nextSections, bool closed) {
+	curves.push_back(startingSection);
+	for (const auto& [point, control] : nextSections)
+		addSection(point, control);
+	if (closed)
+		makeClosed();
+}
+
+
 void BezierPath::addSection(glm::vec3 endpoint, glm::vec3 control) {
 	glm::vec3 startpointControl = 2.0f * curves.back().points[3] - curves.back().points[2];
 	addSection(startpointControl, control, endpoint);
