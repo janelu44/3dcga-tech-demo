@@ -26,6 +26,8 @@ add_executable(FinalProject
 	"src/minimap/minimap.cpp"
 	"src/bezier/curve.cpp"
 	"src/bezier/path.cpp"
+	"src/shadow/spotlight_shadow_map.cpp"
+	"src/shadow/spotlight_shadow_map.h"
 )
 target_compile_features(FinalProject PRIVATE cxx_std_20)
 target_link_libraries(FinalProject PRIVATE CGFramework)

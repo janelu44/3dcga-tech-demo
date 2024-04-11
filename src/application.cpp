@@ -24,8 +24,9 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/mat4x4.hpp>
 #include <imgui/imgui.h>
 #include "bezier/path.h"
+#include "shadow/spotlight_shadow_map.h"
 
-DISABLE_WARNINGS_POP()
+    DISABLE_WARNINGS_POP()
 
 #include <framework/shader.h>
 #include <framework/window.h>
@@ -100,6 +101,7 @@ public:
         m_house = GPUMesh::loadMeshGPU("resources/meshes/house_and_clothesline.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
+        m_spotlightMap.Init(m_spotlightMapSize, m_spotlightMapSize);
         m_minimap.Init(m_minimapResolution, m_minimapResolution);
 
         loadCubemaps();
@@ -259,6 +261,25 @@ public:
             }
             
         }
+    }
+
+    void renderSpotlight() {
+        glm::mat4 spotlightProjectionMatrix = glm::perspective(
+                glm::radians(90.0f),
+                1.0f,
+                m_camera.zNear,
+                m_camera.zFar
+        );
+        glm::mat4 lightViewMatrix = glm::lookAt(m_spotlightPos, m_spotlightPos + m_camera.forward, m_camera.up);
+        glm::mat4 lightSpaceMatrix = spotlightProjectionMatrix * lightViewMatrix;
+
+        m_spotlightMap.BindForWriting();
+        glViewport(0, 0, m_spotlightMapSize, m_spotlightMapSize);
+        glCullFace(GL_FRONT);
+        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+        renderFlatWorld(m_shadowShader, lightSpaceMatrix, false, true);
     }
 
     void renderMinimapRocket(Shader& shader, glm::mat4 mvpMatrix) {
@@ -422,7 +443,7 @@ public:
         }
     }
 
-    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix, bool isShadowRender = false) {
+    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix, bool isShadowRender = false, bool isSpotlightRender = false, glm::mat4 lightMatrix = glm::mat4(1.0f)) {
         float genRadius = m_renderDistance;
         glm::vec2 genBottomCorner = glm::vec2(m_player.position.x - genRadius, m_player.position.z - genRadius);
         glm::vec2 genTopCorner = glm::vec2(m_player.position.x + genRadius, m_player.position.z + genRadius);
@@ -435,7 +456,7 @@ public:
                 if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
             }
         }
-        if (!isShadowRender) renderWorldTiles(shader, mvpMatrix, tilePositions);
+        if (!isShadowRender && !isSpotlightRender) renderWorldTiles(shader, mvpMatrix, tilePositions, lightMatrix);
 
         // Sun render data
         ObjectRenderData sunData;
@@ -443,7 +464,7 @@ public:
         sunData.color = glm::vec3(0.6f, 0.6f, 0.1f);
         sunData.scale = glm::vec3(0.1f);
         sunData.ignoreBehind = GL_TRUE;
-        if (!isShadowRender) renderFlatWorldObject(shader, m_meshes, mvpMatrix, sunData);
+        if (!isShadowRender && !isSpotlightRender) renderFlatWorldObject(shader, m_meshes, mvpMatrix, sunData, lightMatrix);
 
         // Rocket render data
         ObjectRenderData rocketData;
@@ -452,7 +473,7 @@ public:
         rocketData.rotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
         rocketData.scale = glm::vec3(0.2f);
-        renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData);
+        renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
 
         // Character render data
         ObjectRenderData characterData;
@@ -462,7 +483,7 @@ public:
         characterData.angle = glm::acos(glm::dot(characterFwd, characterFwdXZ));
         characterData.rotationAxis = glm::normalize(glm::cross(characterFwd, characterFwdXZ));
         characterData.scale = glm::vec3(0.1f);
-        if (isShadowRender) renderFlatWorldObject(shader, m_character, mvpMatrix, characterData);
+        if (isShadowRender && !isSpotlightRender) renderFlatWorldObject(shader, m_character, mvpMatrix, characterData, lightMatrix);
 
         // House render data
         ObjectRenderData houseData;
@@ -470,10 +491,10 @@ public:
         houseData.angle = 0.0f;
         houseData.scale = glm::vec3(0.2f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
-        renderFlatWorldObject(shader, m_house, mvpMatrix, houseData);
+        renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
     }
 
-    void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data) {
+    void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data, glm::mat4 lightMatrix, bool isSpotlightRender = false) {
         for (GPUMesh &mesh: meshes) {
             shader.bind();
 
@@ -485,19 +506,25 @@ public:
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(objectScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(objectRot))));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
-            glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
+            glUniform3fv(6, 1, glm::value_ptr(isSpotlightRender ? m_spotlightPos : m_flatSunPos));
             glUniform3fv(7, 1, glm::value_ptr(data.color));
             glUniform1i(8, data.ignoreBehind);
 
+            glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
             glUniform1f(22, 0.0005f);
-            glUniform1i(25, m_isNight);
+            m_spotlightMap.BindForReading(GL_TEXTURE8);
+            glUniform1i(24, 8);
+            glUniform1i(25, m_spotlightEnabled);
+            glUniform3fv(26, 1, glm::value_ptr(m_spotlightPos));
+            glUniformMatrix4fv(27, 1, GL_FALSE, glm::value_ptr(lightMatrix));
+            glUniform1i(29, m_isNight);
             mesh.draw(shader);
         }
     }
 
-    void renderWorldTiles(Shader& shader, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions) {
+    void renderWorldTiles(Shader& shader, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions, glm::mat4 lightMatrix) {
         for (GPUMesh &mesh: m_tile) {
             shader.bind();
 
@@ -505,10 +532,16 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.3f, 0.3f, 0.3f)));
+            glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
             glUniform1f(22, 0.0005f);
-            glUniform1i(25, m_isNight);
+            m_spotlightMap.BindForReading(GL_TEXTURE8);
+            glUniform1i(24, 8);
+            glUniform1i(25, m_spotlightEnabled);
+            glUniform3fv(26, 1, glm::value_ptr(m_spotlightPos));
+            glUniformMatrix4fv(27, 1, GL_FALSE, glm::value_ptr(lightMatrix));
+            glUniform1i(29, m_isNight);
 
             for (glm::vec3 pos : positions) {
                 glm::mat4 tilePos = glm::translate(glm::mat4(1.0f), pos);
@@ -534,6 +567,8 @@ public:
         m_firstCamera.position = m_player.position;
         m_thirdCamera.position = m_player.position - m_distance * m_thirdCamera.forward;
         m_camera = m_thirdPerson ? m_thirdCamera : m_firstCamera;
+
+        m_spotlightPos = m_camera.position - glm::vec3(-0.05f, 0.05f, 0.0f);
     }
 
     void updateFlatWorldSun() {
@@ -616,6 +651,7 @@ public:
 
             if (m_shadowsEnabled) renderShadowMap();
             if (m_minimapEnabled) renderMinimapTexture();
+            if (m_spotlightEnabled && m_flatWorld) renderSpotlight();
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -630,7 +666,16 @@ public:
 
             // Renders
             if (m_flatWorld) {
-                renderFlatWorld(m_defaultShader, mvpMatrix);
+                glm::mat4 spotlightProjectionMatrix = glm::perspective(
+                        glm::radians(90.0f),
+                        1.0f,
+                        m_camera.zNear,
+                        m_camera.zFar
+                );
+                glm::mat4 lightViewMatrix = glm::lookAt(m_spotlightPos, m_spotlightPos + m_camera.forward, m_camera.up);
+                glm::mat4 lightSpaceMatrix = spotlightProjectionMatrix * lightViewMatrix;
+
+                renderFlatWorld(m_defaultShader, mvpMatrix, false, false, lightSpaceMatrix);
             } else {
                 renderCubeMap(m_cubemapShader);
                 planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, true);
@@ -655,6 +700,9 @@ public:
         }
         if (key == GLFW_KEY_H) {
             m_shadowsEnabled = !m_shadowsEnabled;
+        }
+        if (key == GLFW_KEY_E) {
+            m_spotlightEnabled = !m_spotlightEnabled;
         }
         if (key == GLFW_KEY_1) {
             m_flatWorld = !m_flatWorld;
@@ -747,6 +795,10 @@ private:
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
     bool m_realisticMinimap{false};
+    SpotlightShadowMap m_spotlightMap;
+    glm::vec3 m_spotlightPos{0.0f, 0.0f, 0.0f};
+    int m_spotlightMapSize{1024};
+    bool m_spotlightEnabled{true};
 
     // Minimap
     Minimap m_minimap;
