@@ -423,7 +423,7 @@ public:
         glm::vec3 particleColor{ 0.0f };
         if (m_player.moveForward.speed > 0.0f)
             particleColor = glm::vec3(1.0f, 0.0f, 0.0f);
-        else
+        else if (m_player.moveForward.speed < 0.0f)
             particleColor = glm::vec3(0.0f, 0.0f, 1.0f);
         glUniform3fv(5, 1, glm::value_ptr(particleColor));
 
