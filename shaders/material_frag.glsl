@@ -10,11 +10,7 @@ layout(location = 20) uniform bool useShadow = false;
 layout(location = 21) uniform samplerCube texShadow;
 layout(location = 22) uniform float baseBias = 0.15;
 layout(location = 23) uniform float baseDisk = 0.001;
-layout(location = 24) uniform sampler2D texSpotlight;
-layout(location = 25) uniform bool useSpotlight = false;
-layout(location = 26) uniform vec3 spotlightPos = vec3(0.0);
-layout(location = 27) uniform mat4 lightMVP = mat4(1.0);
-layout(location = 29) uniform bool isNight = false;
+layout(location = 25) uniform bool isNight = false;
 
 // Texture uniforms
 layout(location = 30) uniform sampler2D texColor;
@@ -37,27 +33,27 @@ in vec3 fragCubemapCoord;
 
 layout(location = 0) out vec4 fragColor;
 
-vec3 currentLightPos = isNight && useSpotlight ? spotlightPos : lightPos;
-
-float lambert(vec3 normal) {
-    float l = dot(normal, normalize(currentLightPos - fragPos));
+float lambert(bool ignoreBehind) {
+    float l = dot(fragNormal, normalize(lightPos - fragPos));
     if (ignoreBehind) return abs(l);
     return max(l, 0.0);
 }
 
-float lambertWithNormal(mat3 tbn, vec2 texCoord) {
-    vec3 normal = texture(texNormal, texCoord).rgb;
+float lambertWithBump(mat3 tbn) {
+    vec3 normal = texture(texNormal, fragTexCoord).rgb;
     normal = normal * 2.0 - 1.0;
     normal = normalize(tbn * normal);
-    return lambert(normal);
+    float l = dot(normal, normalize(lightPos - fragPos));
+    return max(l, 0.0);
 }
 
-float blinnPhong() {
-    vec3 H = normalize(viewPos - fragPos + currentLightPos - fragPos);
+
+float blinnPhong(bool ignoreBehind) {
+    vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
     vec3 N = normalize(fragNormal);
     float d = dot(H, N);
     if (ignoreBehind) d = abs(d);
-    if (dot(currentLightPos - fragPos, fragNormal) <= 0.0) {
+    if (dot(lightPos - fragPos, fragNormal) <= 0.0) {
         d = 0.0;
     }
     return pow(d, fragShininess);
@@ -72,7 +68,7 @@ vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );
 
 float computeShadow() {
-    const vec3 lightVec = fragPos - currentLightPos;
+    const vec3 lightVec = fragPos - lightPos;
     const float viewDistance = length(viewPos - fragPos);
 
     float shadow = 0.0;
@@ -89,42 +85,14 @@ float computeShadow() {
     return shadow / float(pcfSamples);
 }
 
-float computeSpotlight() {
-    const vec3 lightDir = normalize(fragPos - spotlightPos);
-
-    vec4 fragLightCoord = lightMVP * vec4(fragPos, 1.0);
-    fragLightCoord.xyz /= fragLightCoord.w;
-    fragLightCoord.xyz = fragLightCoord.xyz * 0.5 + 0.5;
-
-    float shadow = 0.0;
-    float bias = 0.005 * (1.0 - dot(fragNormal, lightDir));
-    int pcfRadius = 3;
-    for (int i = -pcfRadius; i <= pcfRadius; ++i) {
-        for (int j = -pcfRadius; j <= pcfRadius; ++j) {
-            float sampleDistance = texture(texSpotlight, fragLightCoord.xy + vec2(i, j)/textureSize(texSpotlight, 0).x).x;
-            if (length(fragPos - spotlightPos) < sampleDistance + bias) shadow += 1.0;
-        }
-    }
-    shadow /= pow(1 + pcfRadius, 2);
-
-    float distToCenter = distance(fragLightCoord.xy, vec2(0.5, 0.5));
-    float spotLightMultiplier = distToCenter >= 0.5 ? 0.0 : 1 - distToCenter * 2.0;
-    return shadow * spotLightMultiplier;
-}
-
 void main() {
     const vec3 normal = normalize(fragNormal);
     const mat3 TBN = mat3(fragTangent, fragBiTangent, fragNormal);
 
-    vec2 texCoord = vec2(fragTexCoord.x, -fragTexCoord.y);
-
-    float shading = useNormalMap ? lambertWithNormal(TBN, texCoord) : lambert(normal);
-    shading += blinnPhong();
-    vec3 color = shading * texture(texColor, texCoord).rgb;
+    vec4 color = vec4(lambert(ignoreBehind) * fragKd + blinnPhong(ignoreBehind) * fragKs + fragKd * 0.1f, 1.0f);
 
     float shadow = useShadow ? computeShadow() : 1.0;
-    float spotlight = useSpotlight ? computeSpotlight() : 1.0;
 
-    fragColor = vec4(color * shadow, 1.0);
-    if (isNight) fragColor = vec4(color * (useSpotlight ? max(spotlight, 0.1f) : 0.1f) , 1.0f);
+    fragColor = vec4((color * shadow).rgb, 1.0);
+    if (isNight) fragColor = vec4(forceColor * 0.05f, 1.0f);
 }
