@@ -35,6 +35,15 @@ DISABLE_WARNINGS_POP()
 #include <cmath>
 #include <chrono>
 
+struct ObjectRenderData {
+    glm::vec3 position = glm::vec3(0.0f);
+    float angle = 0.0f;
+    glm::vec3 rotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 scale = glm::vec3(1.0f);
+    glm::vec3 color = glm::vec3(0.0f);
+    bool ignoreBehind = false;
+};
+
 class Application {
 public:
     Application()
@@ -88,6 +97,7 @@ public:
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket.obj");
         m_tile = GPUMesh::loadMeshGPU("resources/meshes/flat_tile.obj");
         m_character = GPUMesh::loadMeshGPU("resources/meshes/spong.obj");
+        m_house = GPUMesh::loadMeshGPU("resources/meshes/house_and_clothesline.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
         m_minimap.Init(m_minimapResolution, m_minimapResolution);
@@ -241,11 +251,7 @@ public:
             glm::mat4 lightSpaceMatrix = shadowProjectionMatrix * lightViewMatrix;
 
             if (m_flatWorld) {
-                if (!m_isNight) {
-//                    renderFlatWorld(m_shadowShader, lightSpaceMatrix, false);
-                    renderFlatRocket(m_shadowShader, lightSpaceMatrix);
-                    renderCharacterModel(m_shadowShader, lightSpaceMatrix);
-                }
+                if (!m_isNight) renderFlatWorld(m_shadowShader, lightSpaceMatrix, true);
             } else {
                 planetSystem.draw(lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true, false);
                 renderIoanSystem(m_shadowShader, lightSpaceMatrix);
@@ -416,57 +422,73 @@ public:
         }
     }
 
-    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix, bool renderSun = true) {
+    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix, bool isShadowRender = false) {
         float genRadius = m_renderDistance;
         glm::vec2 genBottomCorner = glm::vec2(m_player.position.x - genRadius, m_player.position.z - genRadius);
         glm::vec2 genTopCorner = glm::vec2(m_player.position.x + genRadius, m_player.position.z + genRadius);
 
+        std::vector<glm::vec3> tilePositions;
         for (float x = genBottomCorner.x; x < genTopCorner.x; x += 2.0f) {
             for (float y = genBottomCorner.y; y < genTopCorner.y; y += 2.0f) {
                 glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
-                glm::vec3 tilePos = glm::vec3(tileCenter.x, 0.0f, tileCenter.y);
-                if (glm::distance(tilePos, m_player.position) < genRadius) renderFlatTile(shader, mvpMatrix, tilePos);
+                glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.05f, tileCenter.y);
+                if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
             }
         }
+        if (!isShadowRender) renderWorldTiles(shader, mvpMatrix, tilePositions);
 
-        if (renderSun) renderFlatSun(shader, mvpMatrix);
+        // Sun render data
+        ObjectRenderData sunData;
+        sunData.position = m_flatSunPos;
+        sunData.color = glm::vec3(0.6f, 0.6f, 0.1f);
+        sunData.scale = glm::vec3(0.1f);
+        sunData.ignoreBehind = GL_TRUE;
+        if (!isShadowRender) renderFlatWorldObject(shader, m_meshes, mvpMatrix, sunData);
+
+        // Rocket render data
+        ObjectRenderData rocketData;
+        rocketData.position = glm::vec3(1.0f, 0.29f, 1.0f);
+        rocketData.angle = 90.0f;
+        rocketData.rotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+        rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
+        rocketData.scale = glm::vec3(0.2f);
+        renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData);
+
+        // Character render data
+        ObjectRenderData characterData;
+        glm::vec3 characterFwd = glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 characterFwdXZ = glm::normalize(glm::vec3(m_player.forward.x, 0.0f, m_player.forward.z));
+        characterData.position = m_player.position - glm::vec3(0.0f, 0.115f, 0.0f);
+        characterData.angle = glm::acos(glm::dot(characterFwd, characterFwdXZ));
+        characterData.rotationAxis = glm::normalize(glm::cross(characterFwd, characterFwdXZ));
+        characterData.scale = glm::vec3(0.1f);
+        if (isShadowRender) renderFlatWorldObject(shader, m_character, mvpMatrix, characterData);
+
+        // House render data
+        ObjectRenderData houseData;
+        houseData.position = glm::vec3(1.0f, -0.05f, -0.75f);
+        houseData.angle = 0.0f;
+        houseData.scale = glm::vec3(0.2f);
+        rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
+        renderFlatWorldObject(shader, m_house, mvpMatrix, houseData);
     }
 
-    void renderFlatSun(Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh& mesh : m_meshes) {
+    void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data) {
+        for (GPUMesh &mesh: meshes) {
             shader.bind();
 
-            glm::mat4 sunPos = glm::translate(glm::mat4(1.0f), m_flatSunPos);
-            glm::mat4 sunScale = glm::scale(sunPos, glm::vec3(0.1f));
+            glm::mat4 objectPos = glm::translate(glm::mat4(1.0f), data.position);
+            glm::mat4 objectRot = glm::rotate(objectPos, glm::radians(data.angle), data.rotationAxis);
+            glm::mat4 objectScale = glm::scale(objectRot, glm::vec3(data.scale));
 
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(sunScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(sunPos))));
-            glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.6f, 0.6f, 0.1f)));
-            glUniform1i(8, GL_TRUE);
-            glUniform1i(20, GL_FALSE);
-            mesh.draw(shader);
-        }
-    }
-
-    void renderFlatRocket(Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh& mesh : m_rocket) {
-            shader.bind();
-
-            glm::mat4 rocketPos = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
-            glm::mat4 rocketRot = glm::rotate(rocketPos, glm::degrees(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            glm::mat4 rocketScale = glm::scale(rocketRot, glm::vec3(0.1f));
-            glm::mat3 rocketNormal = glm::inverseTranspose(glm::mat3(rocketRot));
-
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(rocketScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(rocketNormal));
+            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(objectScale));
+            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(objectRot))));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
-            glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.7f, 0.7f, 0.7f)));
+            glUniform3fv(7, 1, glm::value_ptr(data.color));
+            glUniform1i(8, data.ignoreBehind);
 
-            glUniform1i(20, GL_TRUE);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
             glUniform1f(22, 0.0005f);
@@ -475,51 +497,27 @@ public:
         }
     }
 
-    void renderFlatTile(Shader& shader, glm::mat4 mvpMatrix, glm::vec3 position) {
+    void renderWorldTiles(Shader& shader, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions) {
         for (GPUMesh &mesh: m_tile) {
             shader.bind();
 
-//            float randomAngle = 90.0f * float((int(position.x + position.z) / 2) % 4);
-//            glm::mat4 tilePos = glm::translate(glm::mat4(1.0f), position - glm::vec3(0.0f, 0.1f, 0.0f));
-//            glm::mat4 tileRot = glm::rotate(tilePos, glm::radians(randomAngle), glm::vec3(0.0f, 1.0f, 0.0f));
-
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(glm::translate(glm::mat4(1.0f), position - glm::vec3(0.0f, 0.1f, 0.0f))));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(glm::mat4(1.0f)))));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.3f, 0.3f, 0.3f)));
-
-            glUniform1i(20, GL_TRUE);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
             glUniform1f(22, 0.0005f);
             glUniform1i(25, m_isNight);
-            mesh.draw(shader);
-        }
-    }
 
-    void renderCharacterModel(Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh& mesh : m_character) {
-            shader.bind();
-
-            glm::vec3 characterFwd = glm::vec3(0.0f, 0.0f, 1.0f);
-            glm::vec3 characterFwdXZ = glm::normalize(glm::vec3(m_player.forward.x, 0.0f, m_player.forward.z));
-
-            float angle = glm::acos(glm::dot(characterFwd, characterFwdXZ));
-            glm::vec3 rotationAxis = glm::normalize(glm::cross(characterFwd, characterFwdXZ));
-
-            glm::mat4 characterPos = glm::translate(glm::mat4(1.0f), m_player.position - glm::vec3(0.0f, 0.115f, 0.0f));
-            glm::mat4 characterRot = glm::rotate(characterPos, angle, rotationAxis);
-            glm::mat4 characterScale = glm::scale(characterRot, glm::vec3(0.1f));
-
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-            glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(characterScale));
-            glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(characterRot))));
-            glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
-            glUniform1i(8, GL_TRUE);
-            glUniform1i(25, m_isNight);
-            mesh.draw(shader);
+            for (glm::vec3 pos : positions) {
+                glm::mat4 tilePos = glm::translate(glm::mat4(1.0f), pos);
+                glm::mat4 tileScale = glm::scale(tilePos, glm::vec3(1.0f));
+                glm::mat3 tileNormal = glm::inverseTranspose(glm::mat3(tilePos));
+                glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(tileScale));
+                glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(tileNormal));
+                mesh.draw(shader);
+            }
         }
     }
 
@@ -541,7 +539,16 @@ public:
     void updateFlatWorldSun() {
         float angle = glm::radians(0.25f * frametimeScale);
         m_flatSunPos = glm::angleAxis(angle, glm::vec3(0.0f, 0.0f, 1.0f)) * m_flatSunPos;
-        m_isNight = m_flatSunPos.y <= 0.0f;
+        m_isNight = m_flatSunPos.y <= -0.1f;
+
+        glm::vec3 skyColorTop = glm::vec3(0.53f, 0.8f, 0.92f);
+        glm::vec3 skyColorBot = glm::vec3(0.053f, 0.08f, 0.092f);
+        glm::vec3 skyColorNight = glm::vec3(0.05f, 0.05f, 0.1f);
+
+        float skyRatio = (m_flatSunPos.y - 3.0f) / 27.0f;
+        if (m_flatSunPos.y > 3.0f) m_skyColor = skyRatio * skyColorTop + (1.0f - skyRatio) * skyColorBot;
+        else if (m_flatSunPos.y >= 0.0f) m_skyColor = (m_flatSunPos.y/3.0f) * skyColorBot + (1.0f - m_flatSunPos.y/3.0f) * skyColorNight;
+        else m_skyColor = skyColorNight;
     }
 
     struct {
@@ -616,22 +623,21 @@ public:
             glViewport(0, 0, m_window.getWindowSize().x, m_window.getWindowSize().y);
 
             // Clear the screen
-            glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+            glm::vec3 skyColor = m_flatWorld ? m_skyColor : glm::vec3(0.05f);
+            glClearColor(skyColor.r, skyColor.g, skyColor.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glEnable(GL_DEPTH_TEST);
 
             // Renders
-            renderCubeMap(m_cubemapShader);
             if (m_flatWorld) {
-                renderFlatRocket(m_defaultShader, mvpMatrix);
                 renderFlatWorld(m_defaultShader, mvpMatrix);
             } else {
+                renderCubeMap(m_cubemapShader);
                 planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, true);
                 renderIoanSystem(m_defaultShader, mvpMatrix);
                 renderRocket(m_defaultShader, mvpMatrix);
                 if (m_minimapEnabled) renderMinimap();
             }
-            
 
             m_window.swapBuffers();
         }
@@ -722,7 +728,9 @@ private:
     bool m_flatWorld{false};
     float m_renderDistance{50.0f};
     glm::vec3 m_flatSunPos{0.0f, 30.0f, 0.0f};
+    glm::vec3 m_skyColor{0.53f, 0.8f, 0.92f};
     bool m_isNight{false};
+
 
     // Shaders for default rendering and for depth rendering
     Shader m_testShader;
@@ -750,6 +758,7 @@ private:
     std::vector<GPUMesh> m_rocket;
     std::vector<GPUMesh> m_tile;
     std::vector<GPUMesh> m_character;
+    std::vector<GPUMesh> m_house;
     Texture m_texture;
     Texture m_normalMap;
     bool m_useMaterial{true};
