@@ -95,7 +95,7 @@ float computeSpotlight() {
     fragLightCoord.xyz = fragLightCoord.xyz * 0.5 + 0.5;
 
     float shadow = 0.0;
-    float bias = 0.05 * (1.0 - dot(fragNormal, lightDir));
+    float bias = 0.005 * (1.0 - dot(fragNormal, lightDir));
     int pcfRadius = 3;
     for (int i = -pcfRadius; i <= pcfRadius; ++i) {
         for (int j = -pcfRadius; j <= pcfRadius; ++j) {
@@ -119,6 +119,6 @@ void main() {
     float shadow = useShadow ? computeShadow() : 1.0;
     float spotlight = useSpotlight ? computeSpotlight() : 1.0;
 
-    fragColor = vec4((color * shadow).rgb, 1.0);
-    if (isNight) fragColor = vec4(color * (useSpotlight ? max(spotlight, 0.05f) : 0.05f) , 1.0f);
+    fragColor = vec4(color * shadow, 1.0);
+    if (isNight) fragColor = vec4(color * (useSpotlight ? max(spotlight, 0.1f) : 0.1f) , 1.0f);
 }

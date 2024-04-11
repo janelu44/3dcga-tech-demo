@@ -34,8 +34,10 @@ in vec3 fragCubemapCoord;
 
 layout(location = 0) out vec4 fragColor;
 
+vec3 currentLightPos = isNight && useSpotlight ? spotlightPos : lightPos;
+
 float lambert(vec3 normal) {
-    float l = dot(normal, normalize(lightPos - fragPos));
+    float l = dot(normal, normalize(currentLightPos - fragPos));
     return max(l, 0.0);
 }
 
@@ -47,10 +49,10 @@ float lambertWithNormal(mat3 tbn, vec2 texCoord) {
 }
 
 float blinnPhong() {
-    vec3 H = normalize(viewPos - fragPos + lightPos - fragPos);
+    vec3 H = normalize(viewPos - fragPos + currentLightPos - fragPos);
     vec3 N = normalize(fragNormal);
     float d = dot(H, N);
-    if (dot(lightPos - fragPos, fragNormal) <= 0.0) {
+    if (dot(currentLightPos - fragPos, fragNormal) <= 0.0) {
         d = 0.0;
     }
     return pow(d, fragShininess);
@@ -65,7 +67,7 @@ vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );
 
 float computeShadow() {
-    const vec3 lightVec = fragPos - lightPos;
+    const vec3 lightVec = fragPos - currentLightPos;
     const float viewDistance = length(viewPos - fragPos);
 
     float shadow = 0.0;
@@ -82,6 +84,29 @@ float computeShadow() {
     return shadow / float(pcfSamples);
 }
 
+float computeSpotlight() {
+    const vec3 lightDir = normalize(fragPos - spotlightPos);
+
+    vec4 fragLightCoord = lightMVP * vec4(fragPos, 1.0);
+    fragLightCoord.xyz /= fragLightCoord.w;
+    fragLightCoord.xyz = fragLightCoord.xyz * 0.5 + 0.5;
+
+    float shadow = 0.0;
+    float bias = 0.005 * (1.0 - dot(fragNormal, lightDir));
+    int pcfRadius = 3;
+    for (int i = -pcfRadius; i <= pcfRadius; ++i) {
+        for (int j = -pcfRadius; j <= pcfRadius; ++j) {
+            float sampleDistance = texture(texSpotlight, fragLightCoord.xy + vec2(i, j)/textureSize(texSpotlight, 0).x).x;
+            if (length(fragPos - spotlightPos) < sampleDistance + bias) shadow += 1.0;
+        }
+    }
+    shadow /= pow(1 + pcfRadius, 2);
+
+    float distToCenter = distance(fragLightCoord.xy, vec2(0.5, 0.5));
+    float spotLightMultiplier = distToCenter >= 0.5 ? 0.0 : 1 - distToCenter * 2.0;
+    return shadow * spotLightMultiplier;
+}
+
 void main() {
     const vec3 normal = normalize(fragNormal);
     const mat3 TBN = mat3(fragTangent, fragBiTangent, fragNormal);
@@ -90,7 +115,11 @@ void main() {
 
     float shading = useNormalMap ? lambertWithNormal(TBN, texCoord) : lambert(normal);
     shading += blinnPhong();
+    vec3 color = shading * texture(texColor, texCoord).rgb;
+
     float shadow = useShadow ? computeShadow() : 1.0;
-    fragColor = shading * shadow * texture(texColor, texCoord);
-    fragColor.w = 1.0;
+    float spotlight = useSpotlight ? computeSpotlight() : 1.0;
+
+    fragColor = vec4(color * shadow, 1.0);
+    if (isNight) fragColor = vec4(color * (useSpotlight ? max(spotlight, 0.1f) : 0.1f) , 1.0f);
 }

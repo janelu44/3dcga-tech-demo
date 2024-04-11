@@ -59,7 +59,8 @@ public:
               m_thirdCamera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_spacePlayer(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
-              m_flatPlayer(&m_window, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)) {
+              m_flatPlayer(&m_window, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+              m_tileTexture("resources/textures/grass_mossy.png") {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -96,7 +97,7 @@ public:
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
         m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket.obj");
-        m_tile = GPUMesh::loadMeshGPU("resources/meshes/flat_tile.obj");
+        m_tile = GPUMesh::loadMeshGPU("resources/meshes/plane_tile.obj");
         m_character = GPUMesh::loadMeshGPU("resources/meshes/spong.obj");
         m_house = GPUMesh::loadMeshGPU("resources/meshes/house_and_clothesline.obj");
 
@@ -142,6 +143,10 @@ public:
             minimapColorBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl");
             m_minimapColorShader = minimapColorBuilder.build();
 
+            ShaderBuilder textureBuilder;
+            textureBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            textureBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl");
+            m_textureShader = textureBuilder.build();
         }
         catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
@@ -452,11 +457,11 @@ public:
         for (float x = genBottomCorner.x; x < genTopCorner.x; x += 2.0f) {
             for (float y = genBottomCorner.y; y < genTopCorner.y; y += 2.0f) {
                 glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
-                glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.05f, tileCenter.y);
+                glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.04f, tileCenter.y);
                 if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
             }
         }
-        if (!isShadowRender && !isSpotlightRender) renderWorldTiles(shader, mvpMatrix, tilePositions, lightMatrix);
+        if (!isShadowRender && !isSpotlightRender) renderWorldTiles(m_textureShader, mvpMatrix, tilePositions, lightMatrix);
 
         // Sun render data
         ObjectRenderData sunData;
@@ -473,7 +478,8 @@ public:
         rocketData.rotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
         rocketData.scale = glm::vec3(0.2f);
-        renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
+        if (glm::distance(rocketData.position, m_player.position) < genRadius)
+            renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
 
         // Character render data
         ObjectRenderData characterData;
@@ -491,7 +497,8 @@ public:
         houseData.angle = 0.0f;
         houseData.scale = glm::vec3(0.2f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
-        renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
+        if (glm::distance(houseData.position, m_player.position) < genRadius)
+            renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
     }
 
     void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data, glm::mat4 lightMatrix, bool isSpotlightRender = false) {
@@ -513,7 +520,7 @@ public:
             glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
-            glUniform1f(22, 0.0005f);
+            glUniform1f(22, 0.005f);
             m_spotlightMap.BindForReading(GL_TEXTURE8);
             glUniform1i(24, 8);
             glUniform1i(25, m_spotlightEnabled);
@@ -542,6 +549,8 @@ public:
             glUniform3fv(26, 1, glm::value_ptr(m_spotlightPos));
             glUniformMatrix4fv(27, 1, GL_FALSE, glm::value_ptr(lightMatrix));
             glUniform1i(29, m_isNight);
+            m_tileTexture.bind(GL_TEXTURE10);
+            glUniform1i(30, 10);
 
             for (glm::vec3 pos : positions) {
                 glm::mat4 tilePos = glm::translate(glm::mat4(1.0f), pos);
@@ -788,6 +797,7 @@ private:
     Shader m_reflectionShader;
     Shader m_minimapShader;
     Shader m_minimapColorShader;
+    Shader m_textureShader;
 
     // Shadow Mapping
 //    int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
@@ -811,6 +821,7 @@ private:
     std::vector<GPUMesh> m_tile;
     std::vector<GPUMesh> m_character;
     std::vector<GPUMesh> m_house;
+    Texture m_tileTexture;
     Texture m_texture;
     Texture m_normalMap;
     bool m_useMaterial{true};
