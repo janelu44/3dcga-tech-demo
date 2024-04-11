@@ -459,9 +459,13 @@ public:
                 glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
                 glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.04f, tileCenter.y);
                 if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
+
+//                if (m_stonePlaces(tileCenter) != nullptr)
+//
+//                rand() % 2;
             }
         }
-        if (!isShadowRender && !isSpotlightRender) renderWorldTiles(m_textureShader, mvpMatrix, tilePositions, lightMatrix);
+        if (!isShadowRender && !isSpotlightRender) renderMultipleObjects(m_textureShader, m_tile, mvpMatrix, tilePositions, lightMatrix);
 
         // Sun render data
         ObjectRenderData sunData;
@@ -474,7 +478,7 @@ public:
         // Rocket render data
         ObjectRenderData rocketData;
         rocketData.position = glm::vec3(1.0f, 0.29f, 1.0f);
-        rocketData.angle = 90.0f;
+        rocketData.angle = glm::radians(90.0f);
         rocketData.rotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
         rocketData.scale = glm::vec3(0.2f);
@@ -494,7 +498,7 @@ public:
         // House render data
         ObjectRenderData houseData;
         houseData.position = glm::vec3(1.0f, -0.05f, -0.75f);
-        houseData.angle = 0.0f;
+        houseData.angle = glm::radians(0.0f);
         houseData.scale = glm::vec3(0.2f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
         if (glm::distance(houseData.position, m_player.position) < genRadius)
@@ -506,7 +510,7 @@ public:
             shader.bind();
 
             glm::mat4 objectPos = glm::translate(glm::mat4(1.0f), data.position);
-            glm::mat4 objectRot = glm::rotate(objectPos, glm::radians(data.angle), data.rotationAxis);
+            glm::mat4 objectRot = glm::rotate(objectPos, data.angle, data.rotationAxis);
             glm::mat4 objectScale = glm::scale(objectRot, glm::vec3(data.scale));
 
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -531,8 +535,8 @@ public:
         }
     }
 
-    void renderWorldTiles(Shader& shader, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions, glm::mat4 lightMatrix) {
-        for (GPUMesh &mesh: m_tile) {
+    void renderMultipleObjects(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions, glm::mat4 lightMatrix) {
+        for (GPUMesh &mesh: meshes) {
             shader.bind();
 
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -787,7 +791,7 @@ private:
     glm::vec3 m_flatSunPos{0.0f, 30.0f, 0.0f};
     glm::vec3 m_skyColor{0.53f, 0.8f, 0.92f};
     bool m_isNight{false};
-
+//    static std::unordered_map<glm::vec2, glm::vec3> m_stonePlaces;
 
     // Shaders for default rendering and for depth rendering
     Shader m_testShader;
