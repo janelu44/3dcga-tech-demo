@@ -10,34 +10,54 @@ DISABLE_WARNINGS_POP()
 #include "texture.h"
 #include "planet.h"
 #include "shadow/shadow_map_fbo.h"
+#include "environment/env_map.h"
 
 class PlanetSystem {
     std::map<std::string, Planet *> planets;
     glm::vec3 lightPos = glm::vec3(0.0f);
+    int dynamicTextureIteration = 0;
+    int dynamicTextureFrametime = 5;
 
-    Shader sunShader = ShaderBuilder()
+    Shader colorShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
-            .addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl")
+            .addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl")
             .build();
-    Planet sun = Planet("resources/meshes/sphere.obj", sunShader);
-
-    Shader earthShader = ShaderBuilder()
-            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
-            .addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl")
-            .build();
-    Planet earth = Planet("resources/meshes/sphere.obj", earthShader);
-
-    Shader moonShader = ShaderBuilder()
-            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
-            .addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl")
-            .build();
-    Planet moon = Planet("resources/meshes/sphere.obj", moonShader);
-
-    Shader marsShader = ShaderBuilder()
+    Shader textureShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
             .addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl")
             .build();
-    Planet mars = Planet("resources/meshes/sphere.obj", marsShader);
+    Shader pbrShader = ShaderBuilder()
+            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
+            .addStage(GL_FRAGMENT_SHADER, "shaders/pbr_frag.glsl")
+            .build();
+    Shader reflectionShader = ShaderBuilder()
+            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
+            .addStage(GL_FRAGMENT_SHADER, "shaders/environment_frag.glsl")
+            .build();
+
+    std::string sphereMeshPath = "resources/meshes/rhino_sphere.obj";
+
+    // SOLAR SYSTEM
+    Planet sun = Planet(sphereMeshPath, textureShader);
+    Planet earth = Planet(sphereMeshPath, textureShader);
+    Planet moon = Planet(sphereMeshPath, textureShader);
+    Planet mars = Planet(sphereMeshPath, textureShader);
+
+    // PBR
+    Planet pbr = Planet(sphereMeshPath, pbrShader);
+    Planet pbrLight1 = Planet(sphereMeshPath, colorShader);
+    Planet pbrLight2 = Planet(sphereMeshPath, colorShader);
+    Planet pbrLight3 = Planet(sphereMeshPath, colorShader);
+    Planet pbrLight4 = Planet(sphereMeshPath, colorShader);
+
+    // ENV
+    Planet env = Planet(sphereMeshPath, reflectionShader);
+    Planet envChild1 = Planet(sphereMeshPath, colorShader);
+    Planet envChild2 = Planet(sphereMeshPath, colorShader);
+    Planet envChild3 = Planet(sphereMeshPath, colorShader);
+    Planet envChild4 = Planet(sphereMeshPath, colorShader);
+    Planet envChild5 = Planet(sphereMeshPath, colorShader);
+    Planet envChild6 = Planet(sphereMeshPath, colorShader);
 
 public:
     PlanetSystem();
@@ -46,7 +66,11 @@ public:
 
     void update();
 
+    void bindSpecificUniforms(std::string planetName);
+
     void
     draw(glm::mat4 mvp, glm::vec3 cameraPos, ShadowMapFBO &shadowMap, bool useShadowMap, const Shader &customShader,
-         bool useCustomShader, bool renderSun);
+         bool useCustomShader, EnvMap envMap, bool useEnvMap);
+
+    glm::vec3 getEnvMapPosition();
 };
