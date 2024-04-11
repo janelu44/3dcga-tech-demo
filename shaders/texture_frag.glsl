@@ -31,6 +31,7 @@ layout(location = 0) out vec4 fragColor;
 
 float lambert(vec3 normal) {
     float l = dot(normal, normalize(lightPos - fragPos));
+    if (ignoreBehind) return abs(l);
     return max(l, 0.0);
 }
 

@@ -20,24 +20,52 @@ void Planet::loadNormalMap(std::filesystem::path path) {
     normalTexture = Texture(std::move(path));
 }
 
+void Planet::loadAlbedoMap(std::filesystem::path path) {
+    albedoTexture = Texture(std::move(path));
+}
+
+void Planet::loadMetallicMap(std::filesystem::path path) {
+    metallicTexture = Texture(std::move(path));
+}
+
+void Planet::loadRoughnessMap(std::filesystem::path path) {
+    roughnessTexture = Texture(std::move(path));
+}
+
+void Planet::loadAoMap(std::filesystem::path path) {
+    aoTexture = Texture(std::move(path));
+}
+
+void Planet::loadDynamicTextures(std::vector<std::filesystem::path> paths) {
+    dynamicTextures = std::vector<Texture>{};
+    for (const auto &path: paths) {
+        dynamicTextures->emplace_back(path);
+    }
+}
+
 void Planet::update(glm::mat4 matStart) {
     // UPDATE ORBIT
     orbitProgress += orbitSpeed;
-    if (orbitProgress <= 0.0f) {
-        orbitProgress += 360.0f;
-    }
-    if (orbitProgress >= 360.0f) {
-        orbitProgress -= 360.0f;
-    }
+    if (orbitProgress <= 0.0f) orbitProgress += 360.0f;
+    if (orbitProgress >= 360.0f) orbitProgress -= 360.0f;
+
+    orbitAngle += orbitAngleShift;
+    if (orbitAngle.x <= 0.0f) orbitAngle.x += 360.0f;
+    if (orbitAngle.x >= 360.0f) orbitAngle.x += -360.0f;
+    if (orbitAngle.y <= 0.0f) orbitAngle.y += 360.0f;
+    if (orbitAngle.y >= 360.0f) orbitAngle.y += -360.0f;
 
     // UPDATE REVOLUTION
     revolutionProgress += revolutionSpeed;
-    if (revolutionProgress <= 0.0f) {
-        revolutionProgress += 360.0f;
-    }
-    if (revolutionProgress >= 360.0f) {
-        revolutionProgress -= 360.0f;
-    }
+    if (revolutionProgress <= 0.0f) revolutionProgress += 360.0f;
+    if (revolutionProgress >= 360.0f) revolutionProgress -= 360.0f;
+
+    revolutionAngle += revolutionAngleShift;
+    if (revolutionAngle.x <= 0.0f) revolutionAngle.x += 360.0f;
+    if (revolutionAngle.x >= 360.0f) revolutionAngle.x += -360.0f;
+    if (revolutionAngle.y <= 0.0f) revolutionAngle.y += 360.0f;
+    if (revolutionAngle.y >= 360.0f) revolutionAngle.y += -360.0f;
+
 
     matPosition = glm::mat4(matStart);
     matPosition = glm::rotate(matPosition, glm::radians(orbitAngle.x), glm::vec3(1.0f, 0.0f, 0.0f));

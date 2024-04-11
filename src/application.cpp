@@ -325,8 +325,8 @@ public:
 
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
-        m_minimap.BindForReading(GL_TEXTURE12);
-        glUniform1i(2, 12);
+        m_minimap.BindForReading(GL_TEXTURE4);
+        glUniform1i(2, 4);
 
         m_minimap.Draw();
         glEnable(GL_DEPTH_TEST);
@@ -359,7 +359,7 @@ public:
             for (int i = 0; i < 3; i++) {
                 glm::mat4 ioanPos = glm::mat4(1.0f);
                 ioanPos = glm::translate(ioanPos, ioanPath.evaluate(ioanProgress[i]));
-                ioanPos = glm::translate(ioanPos, glm::vec3(ioanCenter, 0, 0));
+                ioanPos = glm::translate(ioanPos, ioanCenter);
                 glm::mat4 ioanNormal = glm::inverseTranspose(glm::mat3(ioanPos));
                 glm::mat4 ioanScale = glm::scale(ioanPos, glm::vec3(ioanSize));
 
@@ -784,7 +784,7 @@ private:
 
     PlanetSystem planetSystem;
     // de fapt ioan e sistem stabil format din trei corpuri de masa egala care orbiteaza in forma de 8
-    float ioanCenter = 15.0f;
+    glm::vec3 ioanCenter = glm::vec3(10.0f);
     float ioanSize = 0.4f;
     float ioanSpeed = 0.05f;
     float ioanProgress[3]{ 0.0f, 0.4f, 0.8f };
