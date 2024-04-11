@@ -69,6 +69,9 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     }
 
+    // anti ALIAS
+    glfwWindowHint(GLFW_SAMPLES, 4);
+
     // std::string_view does not guarantee that the string contains a terminator character.
     const std::string titleString { title };
     m_pWindow = glfwCreateWindow(windowSize.x, windowSize.y, titleString.c_str(), nullptr, nullptr);
@@ -106,6 +109,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         }
 #endif
+        glEnable(GL_MULTISAMPLE);
 
         // Setup Dear ImGui context.
         ImGui::CreateContext();

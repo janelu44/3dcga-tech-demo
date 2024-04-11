@@ -8,6 +8,6 @@ layout(location = 1) in float life;
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-	vec3 color = mix(endColor, vec3(1), life / 100);
+	vec3 color = mix(endColor, vec3(1), life / 200);
 	fragColor = vec4(color, 1);
 };
