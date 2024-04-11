@@ -60,7 +60,8 @@ public:
               m_player(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_spacePlayer(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
               m_flatPlayer(&m_window, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
-              m_tileTexture("resources/textures/grass_mossy.png") {
+              m_tileTexture("resources/textures/grass_mossy.png"),
+              m_mazeBlockTexture("resources/textures/leaves.png") {
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -100,6 +101,7 @@ public:
         m_tile = GPUMesh::loadMeshGPU("resources/meshes/plane_tile.obj");
         m_character = GPUMesh::loadMeshGPU("resources/meshes/spong.obj");
         m_house = GPUMesh::loadMeshGPU("resources/meshes/house_and_clothesline.obj");
+        m_mazeBlock = GPUMesh::loadMeshGPU("resources/meshes/maze_block.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
         m_spotlightMap.Init(m_spotlightMapSize, m_spotlightMapSize);
@@ -459,13 +461,23 @@ public:
                 glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
                 glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.04f, tileCenter.y);
                 if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
-
-//                if (m_stonePlaces(tileCenter) != nullptr)
-//
-//                rand() % 2;
             }
         }
-        if (!isShadowRender && !isSpotlightRender) renderMultipleObjects(m_textureShader, m_tile, mvpMatrix, tilePositions, lightMatrix);
+        if (!isShadowRender && !isSpotlightRender) renderMultipleObjects(m_textureShader, m_tile, m_tileTexture, mvpMatrix, tilePositions, lightMatrix);
+
+        glm::vec3 startingPos = glm::vec3(-10.0f, -0.05f, -10.0f);
+        std::vector<glm::vec3> mazeBlockPositions;
+        for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+                if (m_mazeGrid[i][j] == 1) {
+                    for (int k = 0; k < 3; k++) {
+                        glm::vec3 mazeBlockPos = startingPos + glm::vec3(i * 0.16f, k * 0.16f, j * 0.16f);
+                        if (glm::distance(mazeBlockPos, m_player.position) < genRadius) mazeBlockPositions.push_back(mazeBlockPos);
+                    }
+                }
+            }
+        }
+        if (!isShadowRender && !isSpotlightRender) renderMultipleObjects(m_textureShader, m_mazeBlock, m_mazeBlockTexture, mvpMatrix, mazeBlockPositions, lightMatrix, true);
 
         // Sun render data
         ObjectRenderData sunData;
@@ -535,7 +547,7 @@ public:
         }
     }
 
-    void renderMultipleObjects(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions, glm::mat4 lightMatrix) {
+    void renderMultipleObjects(Shader& shader, std::vector<GPUMesh>& meshes, Texture& tex, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions, glm::mat4 lightMatrix, bool ignoreBack = false) {
         for (GPUMesh &mesh: meshes) {
             shader.bind();
 
@@ -543,6 +555,7 @@ public:
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(m_flatSunPos));
             glUniform3fv(7, 1, glm::value_ptr(glm::vec3(0.3f, 0.3f, 0.3f)));
+            glUniform1i(8, ignoreBack);
             glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
@@ -553,7 +566,7 @@ public:
             glUniform3fv(26, 1, glm::value_ptr(m_spotlightPos));
             glUniformMatrix4fv(27, 1, GL_FALSE, glm::value_ptr(lightMatrix));
             glUniform1i(29, m_isNight);
-            m_tileTexture.bind(GL_TEXTURE10);
+            tex.bind(GL_TEXTURE10);
             glUniform1i(30, 10);
 
             for (glm::vec3 pos : positions) {
@@ -586,7 +599,9 @@ public:
 
     void updateFlatWorldSun() {
         float angle = glm::radians(0.25f * frametimeScale);
-        m_flatSunPos = glm::angleAxis(angle, glm::vec3(0.0f, 0.0f, 1.0f)) * m_flatSunPos;
+        if (m_forceDay) m_flatSunPos = glm::vec3(0.0f, 30.0f, 0.0f);
+        else if (m_forceNight) m_flatSunPos = glm::vec3(0.0f, -30.0f, 0.0f);
+        else m_flatSunPos = glm::angleAxis(angle, glm::vec3(0.0f, 0.0f, 1.0f)) * m_flatSunPos;
         m_isNight = m_flatSunPos.y <= -0.1f;
 
         glm::vec3 skyColorTop = glm::vec3(0.53f, 0.8f, 0.92f);
@@ -734,6 +749,14 @@ public:
         if (key == GLFW_KEY_MINUS) {
             m_minimap.m_distance += 2.0f;
         }
+        if (key == GLFW_KEY_O) {
+            m_forceDay = !m_forceDay;
+            m_forceNight = false;
+        }
+        if (key == GLFW_KEY_P) {
+            m_forceNight = !m_forceNight;
+            m_forceDay = false;
+        }
     }
 
     void onKeyReleased(int key, int mods) {
@@ -791,7 +814,8 @@ private:
     glm::vec3 m_flatSunPos{0.0f, 30.0f, 0.0f};
     glm::vec3 m_skyColor{0.53f, 0.8f, 0.92f};
     bool m_isNight{false};
-//    static std::unordered_map<glm::vec2, glm::vec3> m_stonePlaces;
+    bool m_forceDay{false};
+    bool m_forceNight{false};
 
     // Shaders for default rendering and for depth rendering
     Shader m_testShader;
@@ -825,7 +849,9 @@ private:
     std::vector<GPUMesh> m_tile;
     std::vector<GPUMesh> m_character;
     std::vector<GPUMesh> m_house;
+    std::vector<GPUMesh> m_mazeBlock;
     Texture m_tileTexture;
+    Texture m_mazeBlockTexture;
     Texture m_texture;
     Texture m_normalMap;
     bool m_useMaterial{true};
@@ -840,6 +866,34 @@ private:
                     "resources/textures/space/front.jpg",
                     "resources/textures/space/back.jpg"
             }
+    };
+
+    int m_mazeGrid[25][25] = {
+            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1},
+            {1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1},
+            {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1},
+            {1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1},
+            {1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1},
+            {1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1},
+            {1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1},
+            {1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+            {0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1},
+            {1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
+            {1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1},
+            {1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1},
+            {1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1},
+            {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1},
+            {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1},
+            {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1},
+            {1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1},
+            {1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     };
 
     std::vector<GLuint> m_skyboxes;

@@ -38,6 +38,7 @@ vec3 currentLightPos = isNight && useSpotlight ? spotlightPos : lightPos;
 
 float lambert(vec3 normal) {
     float l = dot(normal, normalize(currentLightPos - fragPos));
+    if (ignoreBehind) return abs(l);
     return max(l, 0.0);
 }
 
@@ -52,6 +53,7 @@ float blinnPhong() {
     vec3 H = normalize(viewPos - fragPos + currentLightPos - fragPos);
     vec3 N = normalize(fragNormal);
     float d = dot(H, N);
+    if (ignoreBehind) d = abs(d);
     if (dot(currentLightPos - fragPos, fragNormal) <= 0.0) {
         d = 0.0;
     }
