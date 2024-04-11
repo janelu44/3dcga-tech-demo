@@ -36,10 +36,13 @@ void Planet::loadAoMap(std::filesystem::path path) {
     aoTexture = Texture(std::move(path));
 }
 
-void Planet::loadDynamicTextures(std::vector<std::filesystem::path> paths) {
+void Planet::loadDynamicTextures(std::filesystem::path basePath, int frameCount, int numberPad) {
     dynamicTextures = std::vector<Texture>{};
-    for (const auto &path: paths) {
-        dynamicTextures->emplace_back(path);
+    for (int i = 0; i < frameCount; i++) {
+        std::ostringstream oss;
+        oss << std::setw(numberPad) << std::setfill('0') << i;
+        std::string path = basePath.string() + oss.str() + ".jpg";
+        dynamicTextures->emplace_back(std::filesystem::path(path));
     }
 }
 

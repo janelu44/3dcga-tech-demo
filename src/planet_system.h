@@ -15,7 +15,7 @@ class PlanetSystem {
     std::map<std::string, Planet *> planets;
     glm::vec3 lightPos = glm::vec3(0.0f);
     int dynamicTextureIteration = 0;
-    int dynamicTextureFrametime = 50;
+    int dynamicTextureFrametime = 5;
 
     Shader colorShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")

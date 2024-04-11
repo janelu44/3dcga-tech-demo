@@ -742,8 +742,8 @@ private:
     Shader m_minimapColorShader;
 
     // Shadow Mapping
-//    int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
-    int m_shadowMapSize{12288};
+    int m_shadowMapSize{8192}; // Higher resolution for better shadows at longer distances
+//    int m_shadowMapSize{12288};
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
     bool m_realisticMinimap{false};

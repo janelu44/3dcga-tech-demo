@@ -24,7 +24,7 @@ public:
 
     void loadAoMap(std::filesystem::path path);
 
-    void loadDynamicTextures(std::vector<std::filesystem::path> paths);
+    void loadDynamicTextures(std::filesystem::path basePath, int frameCount, int numberPad = 2);
 
     void update(glm::mat4 matStart);
 

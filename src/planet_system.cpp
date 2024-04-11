@@ -15,9 +15,9 @@ PlanetSystem::PlanetSystem() {
     sun.revolutionSpeed = 0.0f;
     sun.allowLightBehind = true;
     sun.bypassShadowMap = true;
-//    sun.loadDynamicTextures({
-//        "resources/textures/earth.jpg",
-//    });
+//    sun.loadColorMap("resources/textures/sun.jpg");
+    sun.loadDynamicTextures("resources/textures/dynamic/lsd/lsd_", 9, 1);
+
 
     planets["Earth"] = &earth;
     earth.radius = 1.0f;
