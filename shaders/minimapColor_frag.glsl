@@ -15,6 +15,9 @@ layout(location = 30) uniform sampler2D texColor;
 layout(location = 31) uniform sampler2D texNormal;
 layout(location = 32) uniform bool useNormalMap = false;
 
+// Env map
+layout(location = 60) uniform samplerCube cubemap;
+
 in vec3 fragPos;
 in vec3 fragNormal;
 

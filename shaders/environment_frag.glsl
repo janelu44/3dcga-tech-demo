@@ -16,8 +16,17 @@ layout(location = 25) uniform bool isNight = false;
 layout(location = 30) uniform sampler2D texColor;
 layout(location = 31) uniform sampler2D texNormal;
 layout(location = 32) uniform bool useNormalMap = false;
+layout(location = 33) uniform sampler2D texAlbedo;
+layout(location = 34) uniform bool useAlbedoMap = false;
+layout(location = 35) uniform sampler2D texMetallic;
+layout(location = 36) uniform bool useMetallicMap = false;
+layout(location = 37) uniform sampler2D texRoughness;
+layout(location = 38) uniform bool useRoughnessMap = false;
+layout(location = 39) uniform sampler2D texAo;
+layout(location = 40) uniform bool useAoMap = false;
 
-uniform samplerCube cubemap;
+// Env map
+layout(location = 60) uniform samplerCube cubemap;
 
 in vec3 fragPos;
 in vec3 fragNormal;
@@ -30,8 +39,19 @@ in vec3 fragCubemapCoord;
 
 layout(location = 0) out vec4 fragColor;
 
-void main() {
+void _reflect() {
     vec3 I = normalize(fragPos - viewPos);
     vec3 R = reflect(I, normalize(fragNormal));
-    fragColor = texture(cubemap, normalize(R));
+    fragColor = texture(cubemap, normalize(R)) + vec4(0.05f);
+}
+
+void _refract() {
+    float ratio = 1.00 / 1.52;
+    vec3 I = normalize(fragPos - viewPos);
+    vec3 R = refract(I, normalize(fragNormal), ratio);
+    fragColor = vec4(texture(cubemap, R).rgb, 1.0);
+}
+
+void main() {
+    _reflect();
 }

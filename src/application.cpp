@@ -1,4 +1,4 @@
-    //#include "Image.h"
+//#include "Image.h"
 #include "camera.h"
 #include "player.h"
 #include "mesh.h"
@@ -47,7 +47,7 @@ struct ObjectRenderData {
 class Application {
 public:
     Application()
-        : m_window("Final Project", glm::ivec2(1600, 900), OpenGLVersion::GL45),
+            : m_window("Final Project", glm::ivec2(1600, 900), OpenGLVersion::GL45),
               m_texture("resources/textures/mars.jpg"),
               m_normalMap("resources/normal/mars_normal.jpg"),
               m_camera(&m_window, INITIAL_POSITION, INITIAL_FORWARD),
@@ -64,32 +64,32 @@ public:
                 onKeyPressed(key, mods);
             else if (action == GLFW_RELEASE)
                 onKeyReleased(key, mods);
-            });
+        });
         //        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
         m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
             if (action == GLFW_PRESS)
                 onMouseClicked(button, mods);
             else if (action == GLFW_RELEASE)
                 onMouseReleased(button, mods);
-            });
+        });
         m_window.registerScrollCallback([&](glm::vec2 offset) {
             m_distance += offset.y * -0.1f;
-            });
-        m_window.registerWindowResizeCallback([&](const glm::ivec2& size) {
+        });
+        m_window.registerWindowResizeCallback([&](const glm::ivec2 &size) {
             m_projectionMatrix = glm::perspective(
+                    glm::radians(m_camera.fov),
+                    m_window.getAspectRatio(),
+                    m_camera.zNear,
+                    m_camera.zFar
+            );
+        });
+        m_window.setMouseCapture(m_captureCursor);
+
+        m_projectionMatrix = glm::perspective(
                 glm::radians(m_camera.fov),
                 m_window.getAspectRatio(),
                 m_camera.zNear,
                 m_camera.zFar
-            );
-            });
-        m_window.setMouseCapture(m_captureCursor);
-
-        m_projectionMatrix = glm::perspective(
-            glm::radians(m_camera.fov),
-            m_window.getAspectRatio(),
-            m_camera.zNear,
-            m_camera.zFar
         );
 
         m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
@@ -101,6 +101,7 @@ public:
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
         m_minimap.Init(m_minimapResolution, m_minimapResolution);
+        m_envMap.Init(2048, 2048);
 
         loadCubemaps();
 
@@ -115,6 +116,11 @@ public:
             defaultBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl");
             m_defaultShader = defaultBuilder.build();
 
+            ShaderBuilder materialBuilder;
+            materialBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
+            materialBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/material_frag.glsl");
+            m_materialShader = materialBuilder.build();
+
             ShaderBuilder shadowBuilder;
             shadowBuilder.addStage(GL_VERTEX_SHADER, "shaders/shadow_vert.glsl");
             shadowBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/shadow_frag.glsl");
@@ -127,7 +133,7 @@ public:
 
             ShaderBuilder reflectionBuilder;
             reflectionBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
-            reflectionBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/reflection_frag.glsl");
+            reflectionBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/environment_frag.glsl");
             m_reflectionShader = reflectionBuilder.build();
 
             ShaderBuilder minimapBuilder;
@@ -153,12 +159,12 @@ public:
             glBindTexture(GL_TEXTURE_CUBE_MAP, texCubemap);
 
             int width, height, nrChannels;
-            unsigned char* data;
+            unsigned char *data;
             for (unsigned int i = 0; i < m_skyboxImages[x].size(); i++) {
                 data = stbi_load(m_skyboxImages[x][i].c_str(), &width, &height, &nrChannels, 0);
                 glTexImage2D(
-                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                    0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
                 );
             }
 
@@ -198,11 +204,13 @@ public:
         };
         GLuint vbo;
         glCreateBuffers(1, &vbo);
-        glNamedBufferStorage(vbo, static_cast<GLsizeiptr>(skyboxVertices.size() * sizeof(glm::vec3)), skyboxVertices.data(), 0);
+        glNamedBufferStorage(vbo, static_cast<GLsizeiptr>(skyboxVertices.size() * sizeof(glm::vec3)),
+                             skyboxVertices.data(), 0);
 
         GLuint ibo;
         glCreateBuffers(1, &ibo);
-        glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)), skyboxTriangles.data(), 0);
+        glNamedBufferStorage(ibo, static_cast<GLsizeiptr>(skyboxTriangles.size() * sizeof(glm::uvec3)),
+                             skyboxTriangles.data(), 0);
 
         GLuint vao;
         glCreateVertexArrays(1, &vao);
@@ -216,7 +224,7 @@ public:
         m_cubemapVao = vao;
     }
 
-    void renderCubeMap(const Shader& shader) {
+    void renderCubeMap(const Shader &shader) {
         glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
         glDepthMask(GL_FALSE);
         shader.bind();
@@ -232,17 +240,17 @@ public:
 
     void renderShadowMap() {
         glm::mat4 shadowProjectionMatrix = glm::perspective(
-            glm::radians(90.0f),
-            1.0f,
-            m_camera.zNear,
-            m_camera.zFar
+                glm::radians(90.0f),
+                1.0f,
+                m_camera.zNear,
+                m_camera.zFar
         );
 
         glViewport(0, 0, m_shadowMapSize, m_shadowMapSize);
         glCullFace(GL_FRONT);
         glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
 
-        for (SDir dir : ShadowDir::directions) {
+        for (SDir dir: ShadowDir::directions) {
             m_shadowMapFBO.BindForWriting(dir.cubemapFace);
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
@@ -253,16 +261,38 @@ public:
             if (m_flatWorld) {
                 if (!m_isNight) renderFlatWorld(m_shadowShader, lightSpaceMatrix, true);
             } else {
-                planetSystem.draw(lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true, false);
+                planetSystem.draw(lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true,
+                                  m_envMap, false);
                 renderIoanSystem(m_shadowShader, lightSpaceMatrix);
                 renderRocket(m_shadowShader, lightSpaceMatrix, false);
             }
-            
+
         }
     }
 
-    void renderMinimapRocket(Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh& mesh : m_rocket) {
+    void renderEnvMap(glm::vec3 position) {
+        glm::mat4 envProjectionMatrix = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 30.0f);
+
+        glViewport(0, 0, 2048, 2048);
+        glCullFace(GL_FRONT);
+        glClearColor(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
+
+        for (SDir dir: ShadowDir::directions) {
+            m_envMap.BindForWriting(dir.cubemapFace);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+            glm::mat4 envViewMatrix = glm::lookAt(position, position + dir.forward, dir.up);
+            glm::mat4 envSpaceMatrix = envProjectionMatrix * envViewMatrix;
+
+            renderCubeMap(m_cubemapShader);
+            planetSystem.draw(envSpaceMatrix, position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap, false);
+            renderIoanSystem(m_defaultShader, envSpaceMatrix);
+            renderRocket(m_materialShader, envSpaceMatrix, false);
+        }
+    }
+
+    void renderMinimapRocket(Shader &shader, glm::mat4 mvpMatrix) {
+        for (GPUMesh &mesh: m_rocket) {
             shader.bind();
 
             glm::vec3 rocketColor = m_realisticMinimap ? glm::vec3(0.7f, 0.7f, 0.7f) : glm::vec3(1.0f, 0.1f, 0.1f);
@@ -272,7 +302,8 @@ public:
             float angle = glm::acos(glm::dot(rocketFwd, playerFwdXZ));
             glm::vec3 rotationAxis = glm::normalize(glm::cross(rocketFwd, playerFwdXZ));
 
-            glm::mat4 rocketPos = glm::translate(glm::mat4(1.0f), glm::vec3(m_player.position.x, 9.0f, m_player.position.z));
+            glm::mat4 rocketPos = glm::translate(glm::mat4(1.0f),
+                                                 glm::vec3(m_player.position.x, 9.0f, m_player.position.z));
             glm::mat4 rocketRot = glm::rotate(rocketPos, angle, rotationAxis);
             glm::mat4 rocketScale = glm::scale(rocketRot, glm::vec3(0.25f + m_minimap.m_distance / 20.0f));
             glm::mat3 rocketNormal = glm::inverseTranspose(glm::mat3(rocketRot));
@@ -292,14 +323,15 @@ public:
         float resXY = float(m_minimap.m_resolution.x) / float(m_minimap.m_resolution.y);
         float resYX = float(m_minimap.m_resolution.y) / float(m_minimap.m_resolution.x);
         glm::mat4 minimapProjectionMatrix = glm::ortho(
-            -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
-            0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
-            -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
-            0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
-            m_camera.zNear,
-            m_camera.zFar);
+                -0.005f * float(m_minimap.m_resolution.x) - m_minimap.m_distance * resXY,
+                0.005f * float(m_minimap.m_resolution.x) + m_minimap.m_distance * resXY,
+                -0.005f * float(m_minimap.m_resolution.y) - m_minimap.m_distance * resYX,
+                0.005f * float(m_minimap.m_resolution.y) + m_minimap.m_distance * resYX,
+                m_camera.zNear,
+                m_camera.zFar);
         glm::vec3 minimapCenter = glm::vec3(m_player.position.x, 10.0f, m_player.position.z);
-        glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+        glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f),
+                                                  glm::vec3(0.0f, 0.0f, -1.0f));
         glm::mat4 minimapSpaceMatrix = minimapProjectionMatrix * minimapViewMatrix;
 
         m_minimap.BindForWriting();
@@ -310,7 +342,8 @@ public:
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        planetSystem.draw(minimapSpaceMatrix, m_camera.position, m_shadowMapFBO, true, m_minimapColorShader, !m_realisticMinimap, true);
+        planetSystem.draw(minimapSpaceMatrix, m_camera.position, m_shadowMapFBO, true, m_minimapColorShader,
+                          !m_realisticMinimap, m_envMap, true);
         renderIoanSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
         renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
     }
@@ -321,7 +354,8 @@ public:
         glDisable(GL_DEPTH_TEST);
 
         glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(guiValues.minimapPosition, 0.0f));
-        glm::mat4 minimapScale = glm::scale(minimapPos, glm::vec3(guiValues.minimapScale, guiValues.minimapScale, 1.0f));
+        glm::mat4 minimapScale = glm::scale(minimapPos,
+                                            glm::vec3(guiValues.minimapScale, guiValues.minimapScale, 1.0f));
 
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
@@ -337,8 +371,8 @@ public:
             ioanProgress[i] = ioanPath.advance(ioanProgress[i], ioanSpeed * frametimeScale);
     }
 
-    void renderIoanSystem(const Shader& shader, glm::mat4 mvpMatrix) {
-        for (GPUMesh& mesh : m_meshes) {
+    void renderIoanSystem(const Shader &shader, glm::mat4 mvpMatrix) {
+        for (GPUMesh &mesh: m_meshes) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             glm::vec3 lightPos = glm::vec3(0.0f);
@@ -352,9 +386,9 @@ public:
 
             // IOAN Alpha Beta Gamma
             glm::vec3 colors[3] = {
-                {0.0f, 0.7f, 0.9f},
-                {1.0f, 0.0f, 0.5f},
-                {1.0f, 1.0f, 0.0f}
+                    {0.0f, 0.7f, 0.9f},
+                    {1.0f, 0.0f, 0.5f},
+                    {1.0f, 1.0f, 0.0f}
             };
             for (int i = 0; i < 3; i++) {
                 glm::mat4 ioanPos = glm::mat4(1.0f);
@@ -372,12 +406,13 @@ public:
         }
     }
 
-    void renderRocket(const Shader& shader, glm::mat4 mvpMatrix, bool renderCockpit = true) {
+    void renderRocket(const Shader &shader, glm::mat4 mvpMatrix, bool renderCockpit = true) {
         glm::vec3 lightPos = glm::vec3(0.0f);
 
-        for (GPUMesh& mesh : m_cockpit) {
+        for (GPUMesh &mesh: m_cockpit) {
             shader.bind();
-            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
+            glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(
+                    m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
 
@@ -394,7 +429,7 @@ public:
             if (!m_thirdPerson && renderCockpit) mesh.draw(shader);
         }
 
-        for (GPUMesh& mesh : m_rocket) {
+        for (GPUMesh &mesh: m_rocket) {
             shader.bind();
             glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
@@ -422,7 +457,7 @@ public:
         }
     }
 
-    void renderFlatWorld(Shader& shader, glm::mat4 mvpMatrix, bool isShadowRender = false) {
+    void renderFlatWorld(Shader &shader, glm::mat4 mvpMatrix, bool isShadowRender = false) {
         float genRadius = m_renderDistance;
         glm::vec2 genBottomCorner = glm::vec2(m_player.position.x - genRadius, m_player.position.z - genRadius);
         glm::vec2 genTopCorner = glm::vec2(m_player.position.x + genRadius, m_player.position.z + genRadius);
@@ -473,7 +508,8 @@ public:
         renderFlatWorldObject(shader, m_house, mvpMatrix, houseData);
     }
 
-    void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data) {
+    void
+    renderFlatWorldObject(Shader &shader, std::vector<GPUMesh> &meshes, glm::mat4 mvpMatrix, ObjectRenderData data) {
         for (GPUMesh &mesh: meshes) {
             shader.bind();
 
@@ -497,7 +533,7 @@ public:
         }
     }
 
-    void renderWorldTiles(Shader& shader, glm::mat4 mvpMatrix, std::vector<glm::vec3>& positions) {
+    void renderWorldTiles(Shader &shader, glm::mat4 mvpMatrix, std::vector<glm::vec3> &positions) {
         for (GPUMesh &mesh: m_tile) {
             shader.bind();
 
@@ -510,7 +546,7 @@ public:
             glUniform1f(22, 0.0005f);
             glUniform1i(25, m_isNight);
 
-            for (glm::vec3 pos : positions) {
+            for (glm::vec3 pos: positions) {
                 glm::mat4 tilePos = glm::translate(glm::mat4(1.0f), pos);
                 glm::mat4 tileScale = glm::scale(tilePos, glm::vec3(1.0f));
                 glm::mat3 tileNormal = glm::inverseTranspose(glm::mat3(tilePos));
@@ -547,7 +583,8 @@ public:
 
         float skyRatio = (m_flatSunPos.y - 3.0f) / 27.0f;
         if (m_flatSunPos.y > 3.0f) m_skyColor = skyRatio * skyColorTop + (1.0f - skyRatio) * skyColorBot;
-        else if (m_flatSunPos.y >= 0.0f) m_skyColor = (m_flatSunPos.y/3.0f) * skyColorBot + (1.0f - m_flatSunPos.y/3.0f) * skyColorNight;
+        else if (m_flatSunPos.y >= 0.0f) m_skyColor = (m_flatSunPos.y / 3.0f) * skyColorBot +
+                                                      (1.0f - m_flatSunPos.y / 3.0f) * skyColorNight;
         else m_skyColor = skyColorNight;
     }
 
@@ -589,7 +626,8 @@ public:
         loadCubemaps();
 
         while (!m_window.shouldClose()) {
-            const long long currentFrameTimestamp = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+            const long long currentFrameTimestamp =
+                    std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
             if (lastFrameTimestamp != -1) {
                 frametime = currentFrameTimestamp - lastFrameTimestamp;
                 frametimeScale = frametime / 16.67f; // scale for preserving 60fps movement in old code
@@ -599,23 +637,27 @@ public:
             m_window.updateInput();
             gui();
 
-            updateFlatWorldSun();
-            planetSystem.update();
-            updateIoanSystem();
+            if (m_update) {
+                updateFlatWorldSun();
+                planetSystem.update();
+                updateIoanSystem();
+            }
             updateCamera();
 
             // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
-                glm::radians(m_camera.fov),
-                m_window.getAspectRatio(),
-                m_camera.zNear,
-                m_camera.zFar
+                    glm::radians(m_camera.fov),
+                    m_window.getAspectRatio(),
+                    m_camera.zNear,
+                    m_camera.zFar
             );
             m_viewMatrix = m_camera.viewMatrix();
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
             if (m_shadowsEnabled) renderShadowMap();
             if (m_minimapEnabled) renderMinimapTexture();
+
+            renderEnvMap(planetSystem.getEnvMapPosition());
 
             // Set Framebuffer settings
             glCullFace(GL_BACK);
@@ -633,9 +675,10 @@ public:
                 renderFlatWorld(m_defaultShader, mvpMatrix);
             } else {
                 renderCubeMap(m_cubemapShader);
-                planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, true);
+                planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap,
+                                  true);
                 renderIoanSystem(m_defaultShader, mvpMatrix);
-                renderRocket(m_defaultShader, mvpMatrix);
+                renderRocket(m_materialShader, mvpMatrix);
                 if (m_minimapEnabled) renderMinimap();
             }
 
@@ -673,12 +716,15 @@ public:
         if (key == GLFW_KEY_MINUS) {
             m_minimap.m_distance += 2.0f;
         }
+        if (key == GLFW_KEY_P) {
+            m_update = !m_update;
+        }
     }
 
     void onKeyReleased(int key, int mods) {
     }
 
-    void onMouseMove(const glm::dvec2& cursorPos) {
+    void onMouseMove(const glm::dvec2 &cursorPos) {
     }
 
     void onMouseClicked(int button, int mods) {
@@ -698,14 +744,16 @@ public:
     }
 
 private:
-    long long frametime{ 0 };
-    float frametimeScale{ 0 };
-    long long lastFrameTimestamp{ -1 };
+    long long frametime{0};
+    float frametimeScale{0};
+    long long lastFrameTimestamp{-1};
 
     const glm::vec3 INITIAL_POSITION = glm::vec3(1.2f, 1.1f, 0.9f) * 5.0f;
     const glm::vec3 INITIAL_FORWARD = glm::vec3(-5.0f, -10.0f, 0.5f);
 
     Window m_window;
+
+    bool m_update{true};
 
     Player m_spacePlayer;
     Camera m_spacePlayerCamera;
@@ -735,6 +783,7 @@ private:
     // Shaders for default rendering and for depth rendering
     Shader m_testShader;
     Shader m_defaultShader;
+    Shader m_materialShader;
     Shader m_shadowShader;
     Shader m_cubemapShader;
     Shader m_reflectionShader;
@@ -747,6 +796,9 @@ private:
     ShadowMapFBO m_shadowMapFBO;
     bool m_shadowsEnabled{true};
     bool m_realisticMinimap{false};
+
+    // Environment mapping
+    EnvMap m_envMap;
 
     // Minimap
     Minimap m_minimap;
@@ -787,22 +839,22 @@ private:
     glm::vec3 ioanCenter = glm::vec3(10.0f);
     float ioanSize = 0.4f;
     float ioanSpeed = 0.05f;
-    float ioanProgress[3]{ 0.0f, 0.4f, 0.8f };
+    float ioanProgress[3]{0.0f, 0.4f, 0.8f};
     BezierPath ioanPath{
-        {
-        // first segment startpoint + control
-            {3.0f, 1.0f, -1.0f}, {4.0f, 1.5f, -1.0f},
-        // first segment endpoint + control
-            {4.0f, 0.0f, 1.0f}, {3.0f, 0.0f, 1.0f}
-        },
-        {
-        // second segment endpoint + control
-            {{-3.0f, 0.0f, -1.0f}, {-2.0f, 0.0f, -1.0f}},
-        // third segment endpoint + control
-            {{-3.0f, -1.0f, 1.0f}, {-4.0f, -0.5f, 1.0f}},
-        },
-        // fouth segment autofill
-        true
+            {
+                    // first segment startpoint + control
+                    {3.0f, 1.0f, -1.0f}, {4.0f, 1.5f, -1.0f},
+                    // first segment endpoint + control
+                    {4.0f, 0.0f, 1.0f}, {3.0f, 0.0f, 1.0f}
+            },
+            {
+                    // second segment endpoint + control
+                    {{-3.0f, 0.0f, -1.0f}, {-2.0f, 0.0f, -1.0f}},
+                    // third segment endpoint + control
+                    {{-3.0f, -1.0f, 1.0f}, {-4.0f, -0.5f, 1.0f}},
+            },
+            // fouth segment autofill
+            true
     };
 };
 

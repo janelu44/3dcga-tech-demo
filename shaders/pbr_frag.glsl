@@ -26,11 +26,14 @@ layout(location = 39) uniform sampler2D texAo;
 layout(location = 40) uniform bool useAoMap = false;
 
 
-// Shader-specific uniforms
+// PBR-specific uniforms
 layout(location = 50) uniform vec3 uAlbedo = vec3(0.2f);
 layout(location = 51) uniform float uMetallic = 0.0f;
 layout(location = 52) uniform float uRoughness = 0.3f;
 layout(location = 53) uniform float uAo = 1.0f;
+
+// Env map
+layout(location = 60) uniform samplerCube cubemap;
 
 uniform vec3 lightPositions[5];
 uniform vec3 lightColors[5];

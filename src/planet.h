@@ -57,6 +57,7 @@ public:
 
     bool allowLightBehind = false;
     bool bypassShadowMap = false;
+    bool bypassEnvMap = false;
 
     std::optional<Texture> colorTexture;
     std::optional<Texture> normalTexture;
