@@ -370,10 +370,23 @@ public:
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        planetSystem.draw(minimapSpaceMatrix, m_camera.position, m_shadowMapFBO, true, m_minimapColorShader,
-                          !m_realisticMinimap, m_envMap, true);
-        renderIoanSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
-        renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        if (m_flatWorld) {
+            glm::mat4 spotlightProjectionMatrix = glm::perspective(
+                    glm::radians(90.0f),
+                    1.0f,
+                    m_camera.zNear,
+                    m_camera.zFar
+            );
+            glm::mat4 lightViewMatrix = glm::lookAt(m_spotlightPos, m_spotlightPos + m_camera.forward, m_camera.up);
+            glm::mat4 lightSpaceMatrix = spotlightProjectionMatrix * lightViewMatrix;
+            renderFlatWorld(m_defaultShader, minimapSpaceMatrix, false, false, lightSpaceMatrix);
+            renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        } else {
+            planetSystem.draw(minimapSpaceMatrix, m_camera.position, m_shadowMapFBO, true, m_minimapColorShader,
+                              !m_realisticMinimap, m_envMap, true);
+            renderIoanSystem(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+            renderMinimapRocket(m_realisticMinimap ? m_defaultShader : m_minimapColorShader, minimapSpaceMatrix);
+        }
     }
 
     void renderMinimap() {
@@ -506,6 +519,7 @@ public:
             for (int j = 0; j < 25; j++) {
                 if (m_mazeGrid[i][j] == 1) {
                     for (int k = 0; k < 3; k++) {
+                        float factor = 0.24f;
                         glm::vec3 mazeBlockPos = startingPos + glm::vec3(i * 0.16f, k * 0.16f, j * 0.16f);
                         if (glm::distance(mazeBlockPos, m_player.position) < genRadius) mazeBlockPositions.push_back(mazeBlockPos);
                     }
@@ -745,6 +759,8 @@ public:
                 glm::mat4 lightSpaceMatrix = spotlightProjectionMatrix * lightViewMatrix;
 
                 renderFlatWorld(m_defaultShader, mvpMatrix, false, false, lightSpaceMatrix);
+                if (m_minimapEnabled) renderMinimap();
+
             } else {
                 renderCubeMap(m_cubemapShader);
                 planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap,
