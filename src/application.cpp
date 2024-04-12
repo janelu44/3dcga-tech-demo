@@ -914,6 +914,7 @@ public:
         }
         if (key == GLFW_KEY_Z) {
             m_renderRocket = !m_renderRocket;
+            m_minimapEnabled = m_renderRocket;
         }
     }
 
