@@ -30,21 +30,21 @@ void Player::updateInput(long long frametime, bool flatMovement) {
             m_pWindow->isKeyPressed(GLFW_KEY_D),
             m_pWindow->isKeyPressed(GLFW_KEY_A)
         ),
-        frametime);
+        frametime, flatMovement, m_pWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT));
 
     moveForward.update(
         dirHelper(
             m_pWindow->isKeyPressed(GLFW_KEY_W),
             m_pWindow->isKeyPressed(GLFW_KEY_S)
         ),
-        frametime);
+        frametime, flatMovement, m_pWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT));
 
     moveUp.update(
         dirHelper(
             m_pWindow->isKeyPressed(GLFW_KEY_R) || m_pWindow->isKeyPressed(GLFW_KEY_SPACE),
             m_pWindow->isKeyPressed(GLFW_KEY_F) || m_pWindow->isKeyPressed(GLFW_KEY_LEFT_CONTROL)
         ),
-        frametime);
+        frametime, flatMovement, m_pWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT));
 
     if (flatMovement) {
         glm::vec3 flatForward = glm::normalize(glm::vec3(forward.x, 0.0, forward.z));

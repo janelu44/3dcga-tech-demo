@@ -12,30 +12,35 @@ struct Movement {
     float accel{ 0.00003f };
     float decel{ 0.00005f };
     float speedCap{ 0.1f };
+    float instantSpeed{ 0.025f };
 
-    void update(int dir, float frametime) {
-        if (dir == -1) {
-            if (speed > 0.0f)
-                speed -= (accel + decel) * frametime;
-            else
-                speed -= accel * frametime;
-        }
-        else if (dir == 1) {
-            if (speed < 0.0f)
-                speed += (accel + decel) * frametime;
-            else
-                speed += accel * frametime;
-        }
+    void update(int dir, float frametime, bool instantMove, bool fastMove) {
+        if (instantMove)
+            speed = dir * (fastMove ? 4 : 1) * instantSpeed;
         else {
-            if (speed != 0.0f) {
-                float prevSpeed = speed;
-                speed -= decel * frametime * (speed > 0.0f ? 1 : -1);
-                if (prevSpeed * speed < 0.0f)
-                    speed = 0.0f;
+            if (dir == -1) {
+                if (speed > 0.0f)
+                    speed -= (accel + decel) * frametime;
+                else
+                    speed -= accel * frametime;
             }
-        }
+            else if (dir == 1) {
+                if (speed < 0.0f)
+                    speed += (accel + decel) * frametime;
+                else
+                    speed += accel * frametime;
+            }
+            else {
+                if (speed != 0.0f) {
+                    float prevSpeed = speed;
+                    speed -= decel * frametime * (speed > 0.0f ? 1 : -1);
+                    if (prevSpeed * speed < 0.0f)
+                        speed = 0.0f;
+                }
+            }
 
-        speed = (speed < 0.0f ? -1.0f : 1.0f) * std::min(abs(speed), speedCap);
+            speed = (speed < 0.0f ? -1.0f : 1.0f) * std::min(abs(speed), speedCap);
+        }
     }
 };
 
