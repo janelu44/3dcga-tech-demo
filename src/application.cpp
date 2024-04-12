@@ -95,12 +95,11 @@ public:
                 m_camera.zFar
         );
 
-        m_meshes = GPUMesh::loadMeshGPU("resources/meshes/iso_sphere.obj");
-        m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/cockpit_placeholder.obj");
+        m_meshes = GPUMesh::loadMeshGPU("resources/meshes/rhino_sphere.obj");
+        m_cockpit = GPUMesh::loadMeshGPU("resources/meshes/rhino_cockpit.obj");
         m_rocket = GPUMesh::loadMeshGPU("resources/meshes/rocket.obj");
         m_tile = GPUMesh::loadMeshGPU("resources/meshes/plane_tile.obj");
         m_character = GPUMesh::loadMeshGPU("resources/meshes/spong.obj");
-        m_house = GPUMesh::loadMeshGPU("resources/meshes/house_and_clothesline.obj");
         m_mazeBlock = GPUMesh::loadMeshGPU("resources/meshes/maze_block.obj");
 
         m_shadowMapFBO.Init(m_shadowMapSize, m_shadowMapSize);
@@ -462,14 +461,16 @@ public:
                     m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix())));
             glUniform3fv(5, 1, glm::value_ptr(m_camera.position));
             glUniform3fv(6, 1, glm::value_ptr(lightPos));
+            glUniform1i(8, GL_TRUE);
 
             glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
             glUniform1f(22, 0.01f);
 
-            glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(m_modelMatrix));
-            glm::mat4 cockpitScale = glm::scale(m_modelMatrix, glm::vec3(0.1f));
+            glm::mat4 cockpitRot = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::mat3 cockpitNormal = glm::inverseTranspose(glm::mat3(cockpitRot));
+            glm::mat4 cockpitScale = glm::scale(cockpitRot, glm::vec3(0.1f));
 
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
@@ -562,14 +563,14 @@ public:
         characterData.scale = glm::vec3(0.1f);
         if (isShadowRender && !isSpotlightRender) renderFlatWorldObject(shader, m_character, mvpMatrix, characterData, lightMatrix);
 
-        // House render data
-        ObjectRenderData houseData;
-        houseData.position = glm::vec3(1.0f, -0.05f, -0.75f);
-        houseData.angle = glm::radians(0.0f);
-        houseData.scale = glm::vec3(0.2f);
-        rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
-        if (glm::distance(houseData.position, m_player.position) < genRadius)
-            renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
+//        // House render data
+//        ObjectRenderData houseData;
+//        houseData.position = glm::vec3(1.0f, -0.05f, -0.75f);
+//        houseData.angle = glm::radians(0.0f);
+//        houseData.scale = glm::vec3(0.2f);
+//        rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
+//        if (glm::distance(houseData.position, m_player.position) < genRadius)
+//            renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
     }
 
     void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data, glm::mat4 lightMatrix, bool isSpotlightRender = false) {
@@ -921,7 +922,6 @@ private:
     std::vector<GPUMesh> m_rocket;
     std::vector<GPUMesh> m_tile;
     std::vector<GPUMesh> m_character;
-    std::vector<GPUMesh> m_house;
     std::vector<GPUMesh> m_mazeBlock;
     Texture m_tileTexture;
     Texture m_mazeBlockTexture;
