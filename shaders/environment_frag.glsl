@@ -42,7 +42,7 @@ layout(location = 0) out vec4 fragColor;
 void _reflect() {
     vec3 I = normalize(fragPos - viewPos);
     vec3 R = reflect(I, normalize(fragNormal));
-    fragColor = texture(cubemap, normalize(R)) + vec4(0.05f);
+    fragColor = texture(cubemap, R) + vec4(0.05f);
 }
 
 void _refract() {

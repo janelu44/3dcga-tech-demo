@@ -1,6 +1,6 @@
 #version 450
 
-uniform samplerCube cubemap;
+layout(location = 70) uniform samplerCube cubemap;
 
 in vec3 fragPos;
 in vec3 fragCubemapCoord;
