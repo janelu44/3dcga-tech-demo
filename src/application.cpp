@@ -233,8 +233,8 @@ public:
         m_cubemapVao = vao;
     }
 
-    void renderCubeMap(const Shader &shader) {
-        glm::mat4 mvpMatrix = m_projectionMatrix * glm::mat4(glm::mat3(m_viewMatrix));
+    void renderCubeMap(const Shader &shader, glm::mat4 projectionMatrix, glm::mat4 viewMatrix, bool alt = false) {
+        glm::mat4 mvpMatrix = projectionMatrix * glm::mat4(glm::mat3(viewMatrix));
         glDepthMask(GL_FALSE);
         shader.bind();
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
@@ -242,7 +242,13 @@ public:
         glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::inverseTranspose(glm::mat3(m_modelMatrix))));
 
         glBindVertexArray(m_cubemapVao);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
+        if (alt) {
+            m_envMap.BindForReading(GL_TEXTURE28);
+        } else {
+            glActiveTexture(GL_TEXTURE28);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, m_skyboxes[guiValues.skybox]);
+        }
+        glUniform1i(70, 28);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(3 * 12), GL_UNSIGNED_INT, nullptr);
         glDepthMask(GL_TRUE);
     }
@@ -293,7 +299,7 @@ public:
             glm::mat4 envViewMatrix = glm::lookAt(position, position + dir.forward, dir.up);
             glm::mat4 envSpaceMatrix = envProjectionMatrix * envViewMatrix;
 
-            renderCubeMap(m_cubemapShader);
+            renderCubeMap(m_cubemapShader, envProjectionMatrix, envViewMatrix);
             planetSystem.draw(envSpaceMatrix, position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap, false);
             renderIoanSystem(m_defaultShader, envSpaceMatrix);
             renderRocket(m_materialShader, envSpaceMatrix, false);
@@ -762,7 +768,7 @@ public:
                 if (m_minimapEnabled) renderMinimap();
 
             } else {
-                renderCubeMap(m_cubemapShader);
+                renderCubeMap(m_cubemapShader, m_projectionMatrix, m_viewMatrix);
                 planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap,
                                   true);
                 renderIoanSystem(m_defaultShader, mvpMatrix);
