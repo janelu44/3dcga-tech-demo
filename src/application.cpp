@@ -7,6 +7,7 @@
 #include "shadow/shadow_directions.h"
 #include "planet_system.h"
 #include "minimap/minimap.h"
+#include "particle/engine.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -150,6 +151,10 @@ public:
             minimapColorBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl");
             m_minimapColorShader = minimapColorBuilder.build();
 
+            ShaderBuilder particlesBuilder;
+            particlesBuilder.addStage(GL_VERTEX_SHADER, "shaders/particles_vert.glsl");
+            particlesBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/particles_frag.glsl");
+            m_particlesShader = particlesBuilder.build();
             ShaderBuilder textureBuilder;
             textureBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
             textureBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl");
@@ -502,6 +507,9 @@ public:
             glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(cockpitScale));
             glUniformMatrix3fv(2, 1, GL_FALSE, glm::value_ptr(cockpitNormal));
             if (m_thirdPerson || !renderCockpit) mesh.draw(shader);
+
+            if (m_thirdPerson)
+                renderRocketExhaust(mvpMatrix, cockpitScale);
         }
     }
 
@@ -636,6 +644,41 @@ public:
         }
     }
 
+    void renderRocketExhaust(glm::mat4 mvpMatrix, glm::mat4 cockpitMatrix) {
+        m_particlesShader.bind();
+
+        glm::mat4 particlePos = glm::translate(cockpitMatrix, glm::vec3(0.0f, 0.0f, 1.3f));
+        glm::mat4 particleScale = glm::scale(particlePos, glm::vec3(0.01f));
+
+        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+        glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(particleScale));
+        glUniform3fv(2, 1, glm::value_ptr(m_camera.up));
+        glUniform3fv(3, 1, glm::value_ptr(glm::cross(m_camera.forward, m_camera.up)));
+        glUniform2fv(4, 1, glm::value_ptr(glm::vec2(0.001f, 0.001f)));
+
+        glm::vec3 particleColor{ 0.0f };
+        if (m_player.moveForward.speed > 0.0f)
+            particleColor = glm::vec3(1.0f, 0.0f, 0.0f);
+        else if (m_player.moveForward.speed < 0.0f)
+            particleColor = glm::vec3(0.0f, 0.0f, 1.0f);
+        glUniform3fv(5, 1, glm::value_ptr(particleColor));
+
+        glBindVertexArray(rocketExhaust.vao);
+
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, rocketExhaust.billboard_vertex_buffer);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glVertexAttribDivisor(0, 0);
+
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, rocketExhaust.particles_position_buffer);
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glVertexAttribDivisor(1, 1);
+
+
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, rocketExhaust.spawnedParticles);
+    }
+    
     void updateCamera() {
         m_playerCamera.update(m_captureCursor && !m_detachedCamera, frametime);
         m_firstCamera.update(m_captureCursor && !m_thirdPerson, frametime);
@@ -726,6 +769,7 @@ public:
                 updateIoanSystem();
             }
             updateCamera();
+            rocketExhaust.update(frametime, std::max(std::min(abs(m_player.moveForward.speed), 0.05f) / 0.05f, 0.01f));
 
             // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
@@ -896,6 +940,7 @@ private:
     Shader m_reflectionShader;
     Shader m_minimapShader;
     Shader m_minimapColorShader;
+    Shader m_particlesShader;
     Shader m_textureShader;
 
     // Shadow Mapping
@@ -998,6 +1043,8 @@ private:
             // fouth segment autofill
             true
     };
+
+    ParticleEngine rocketExhaust{ 30000, 200 };
 };
 
 int main() {
