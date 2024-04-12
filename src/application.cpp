@@ -284,7 +284,7 @@ public:
                 planetSystem.draw(lightSpaceMatrix, m_camera.position, m_shadowMapFBO, false, m_shadowShader, true,
                                   m_envMap, false);
                 renderIoanSystem(m_shadowShader, lightSpaceMatrix);
-                renderRocket(m_shadowShader, lightSpaceMatrix, false);
+                if (m_renderRocket) renderRocket(m_shadowShader, lightSpaceMatrix, false);
             }
 
         }
@@ -307,7 +307,7 @@ public:
             renderCubeMap(m_cubemapShader, envProjectionMatrix, envViewMatrix);
             planetSystem.draw(envSpaceMatrix, position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap, false);
             renderIoanSystem(m_defaultShader, envSpaceMatrix);
-            renderRocket(m_materialShader, envSpaceMatrix, false);
+            if (m_renderRocket) renderRocket(m_materialShader, envSpaceMatrix, false);
         }
     }
 
@@ -829,7 +829,7 @@ public:
                 planetSystem.draw(mvpMatrix, m_camera.position, m_shadowMapFBO, true, m_shadowShader, false, m_envMap,
                                   true);
                 renderIoanSystem(m_defaultShader, mvpMatrix);
-                renderRocket(m_materialShader, mvpMatrix);
+                if (m_renderRocket) renderRocket(m_materialShader, mvpMatrix);
                 if (m_minimapEnabled) renderMinimap();
             }
 
@@ -883,6 +883,9 @@ public:
         }
         if (key == GLFW_KEY_P) {
             m_update = !m_update;
+        }
+        if (key == GLFW_KEY_Z) {
+            m_renderRocket = !m_renderRocket;
         }
     }
 
@@ -938,6 +941,7 @@ private:
     bool m_detachedCamera{false};
 
     bool m_guiEnabled{false};
+    bool m_renderRocket{true};
 
     // Extra features
     bool m_flatWorld{false};
