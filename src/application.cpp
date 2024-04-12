@@ -773,7 +773,7 @@ public:
             lastFrameTimestamp = currentFrameTimestamp;
 
             m_window.updateInput();
-            gui();
+            if (m_guiEnabled) gui();
 
             if (m_update) {
                 updateFlatWorldSun();
@@ -849,6 +849,9 @@ public:
         }
         if (key == GLFW_KEY_H) {
             m_shadowsEnabled = !m_shadowsEnabled;
+        }
+        if (key == GLFW_KEY_G) {
+            m_guiEnabled = !m_guiEnabled;
         }
         if (key == GLFW_KEY_E) {
             m_spotlightEnabled = !m_spotlightEnabled;
@@ -933,6 +936,8 @@ private:
     bool m_thirdPerson{false};
     float m_distance{1.0f};
     bool m_detachedCamera{false};
+
+    bool m_guiEnabled{false};
 
     // Extra features
     bool m_flatWorld{false};
