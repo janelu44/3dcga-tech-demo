@@ -404,18 +404,24 @@ public:
         m_minimapShader.bind();
 
         glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE_MINUS_CONSTANT_ALPHA, GL_CONSTANT_ALPHA);
+        glBlendColor(0.0f, 0.0f, 0.0f, m_thirdPerson || m_flatWorld ? 0.0f : 0.25f);
 
-        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), glm::vec3(guiValues.minimapPosition, 0.0f));
-        glm::mat4 minimapScale = glm::scale(minimapPos,
-                                            glm::vec3(guiValues.minimapScale, guiValues.minimapScale, 1.0f));
+        glm::vec3 scale = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapScaleTp, guiValues.minimapScaleTp, 1.0f) : glm::vec3(guiValues.minimapScaleFp, guiValues.minimapScaleFp, 1.0f);
+        glm::vec3 pos = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapPosition, 0.0f) : glm::vec3(0.0f, 0.009f, 0.0f);
+        glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), pos);
+        glm::mat4 minimapScale = glm::scale(minimapPos, scale);
 
-        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
+        glm::mat4 mvp = m_thirdPerson || m_flatWorld ? m_projectionMatrix : m_projectionMatrix * m_firstCamera.viewMatrix() * glm::inverse(m_playerCamera.viewMatrix());
+        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvp));
         glUniformMatrix4fv(1, 1, GL_FALSE, glm::value_ptr(minimapScale));
         m_minimap.BindForReading(GL_TEXTURE4);
         glUniform1i(2, 4);
 
         m_minimap.Draw();
         glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
     }
 
     void updateIoanSystem() {
@@ -720,8 +726,9 @@ public:
         const float sameLineOffset = 100.0f;
 
         // minimap
-        glm::vec2 minimapPosition = glm::vec2(0.961f, 0.413f);
-        float minimapScale = 0.5f;
+        glm::vec2 minimapPosition = glm::vec2(0.97f, 0.423f);
+        float minimapScaleFp = 0.4f;
+        float minimapScaleTp = 0.5f;
     } guiValues;
 
     void gui() {
@@ -740,7 +747,7 @@ public:
 
             ImGui::Text("Minimap scale");
             ImGui::SameLine(sameLineOffset);
-            ImGui::DragFloat("##MinimapScale", &guiValues.minimapScale, 0.001f);
+            ImGui::DragFloat("##MinimapScale", &guiValues.minimapScaleTp, 0.001f);
             ImGui::SliderFloat("Render Distance", &m_renderDistance, 10.0f, 100.0f);
             ImGui::EndTabItem();
         }

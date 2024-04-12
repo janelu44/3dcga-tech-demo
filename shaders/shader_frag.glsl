@@ -92,6 +92,7 @@ float computeShadow() {
 
 float computeSpotlight() {
     const vec3 lightDir = normalize(fragPos - spotlightPos);
+    const vec3 viewDir = normalize(fragPos - viewPos);
 
     vec4 fragLightCoord = lightMVP * vec4(fragPos, 1.0);
     fragLightCoord.xyz /= fragLightCoord.w;
@@ -103,10 +104,10 @@ float computeSpotlight() {
     for (int i = -pcfRadius; i <= pcfRadius; ++i) {
         for (int j = -pcfRadius; j <= pcfRadius; ++j) {
             float sampleDistance = texture(texSpotlight, fragLightCoord.xy + vec2(i, j)/textureSize(texSpotlight, 0).x).x;
-            if (length(fragPos - spotlightPos) < sampleDistance + bias) shadow += 1.0;
+            if (length(fragPos - spotlightPos) < sampleDistance + bias && dot(lightDir, viewDir) > 0) shadow += 1.0;
         }
     }
-    shadow /= pow(1 + pcfRadius, 2);
+    shadow /= pow(1 + pcfRadius * 2, 2);
 
     float distToCenter = distance(fragLightCoord.xy, vec2(0.5, 0.5));
     float spotLightMultiplier = distToCenter >= 0.5 ? 0.0 : 1 - distToCenter * 2.0;
