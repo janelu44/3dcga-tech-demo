@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
+#include <GLFW/glfw3.h>
 
 DISABLE_WARNINGS_PUSH()
 
@@ -19,12 +20,6 @@ glm::mat4 Camera::viewMatrix() const {
     return glm::lookAt(position, position + forward, up);
 }
 
-void Camera::zoom(float z) {
-    const float zoomSpeed = 5.0f;
-    fov -= z * zoomSpeed;
-    fov = glm::max(20.0f, glm::min(90.0f, fov));
-}
-
 void Camera::rotateX(float angle) {
     const glm::vec3 horAxis = glm::cross(s_yAxis, forward);
 
@@ -39,24 +34,25 @@ void Camera::rotateY(float angle) {
     up = glm::normalize(glm::cross(forward, horAxis));
 }
 
-void Camera::updateInput() {
-    constexpr float moveSpeed = 0.02f;
-    constexpr float lookSpeed = 0.0015f;
+void Camera::update(bool captureCursor, long long frametime) {
+    if (moveToTarget) {
+        glm::qua start = glm::lookAt(position, position + initialForward, initialUp);
+        glm::qua end = glm::lookAt(position, position + targetForward, targetUp);
 
-    glm::vec3 localMoveDelta{0};
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    if (m_pWindow->isKeyPressed(GLFW_KEY_A))
-        position -= moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_D))
-        position += moveSpeed * right;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_W))
-        position += moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_S))
-        position -= moveSpeed * forward;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_R))
-        position += moveSpeed * up;
-    if (m_pWindow->isKeyPressed(GLFW_KEY_F))
-        position -= moveSpeed * up;
+        interpolationProgress += interpolationSpeed * frametime;
+        glm::qua interp = glm::slerp(start, end, interpolationProgress);
+
+        forward = glm::inverse(interp) * glm::vec3(0.0f, 0.0f, -1.0f);
+        up = glm::inverse(interp) * glm::vec3(0.0f, 1.0f, 0.0f);
+
+        if (interpolationProgress >= 1.0f) {
+            moveToTarget = false;
+            forward = targetForward;
+            up = targetUp;
+        }
+    }
+
+    constexpr float lookSpeed = 0.0015f;
 
     const glm::dvec2 cursorPos = m_pWindow->getCursorPos();
     const glm::vec2 delta = lookSpeed * glm::vec2(cursorPos - m_prevCursorPos);
@@ -64,10 +60,24 @@ void Camera::updateInput() {
 
     if (ImGui::GetIO().WantCaptureMouse) return;
 
-    if (m_pWindow->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+    if (captureCursor && !moveToTarget) {
         if (delta.x != 0.0f)
-            rotateY(delta.x);
+            rotateY(-delta.x);
         if (delta.y != 0.0f)
-            rotateX(delta.y);
+            rotateX(-delta.y);
     }
+}
+
+void Camera::resync() {
+    m_prevCursorPos = m_pWindow->getCursorPos();
+}
+
+void Camera::setTarget(const glm::vec3& futureForward, const glm::vec3& futureUp, const float timeToEnd) {
+    moveToTarget = true;
+    initialForward = forward;
+    initialUp = up;
+    targetForward = futureForward;
+    targetUp = futureUp;
+    interpolationSpeed = 1.0f / timeToEnd;
+    interpolationProgress = 0.0f;
 }

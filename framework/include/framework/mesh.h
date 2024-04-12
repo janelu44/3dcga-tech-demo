@@ -14,6 +14,8 @@ DISABLE_WARNINGS_POP()
 struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
+    glm::vec3 tangent;
+    glm::vec3 biTangent;
     glm::vec3 kd;
     glm::vec3 ks;
     float shininess;

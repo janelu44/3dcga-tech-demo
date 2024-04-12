@@ -7,6 +7,7 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include <iostream>
 #include <stb/stb_image_write.h>
+#include <stb/stb_image.h>
 
 static void glfwErrorCallback(int error, const char* description)
 {
@@ -20,7 +21,7 @@ static void glfwErrorCallback(int error, const char* description)
 void APIENTRY glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION && type != GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR) {
-        std::cerr << "OpenGL: " << message << std::endl;
+        //std::cerr << "OpenGL: " << message << std::endl;
     }
 }
 #endif
@@ -69,6 +70,9 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     }
 
+    // anti ALIAS
+    glfwWindowHint(GLFW_SAMPLES, 4);
+
     // std::string_view does not guarantee that the string contains a terminator character.
     const std::string titleString { title };
     m_pWindow = glfwCreateWindow(windowSize.x, windowSize.y, titleString.c_str(), nullptr, nullptr);
@@ -79,6 +83,11 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
     }
     glfwMakeContextCurrent(m_pWindow);
     glfwSwapInterval(1); // Enable vsync. To disable vsync set this to 0.
+
+    GLFWimage image;
+    image.pixels = stbi_load("resources/icon.png", &image.width, &image.height, 0, 4);
+    glfwSetWindowIcon(m_pWindow, 1, &image);
+    stbi_image_free(image.pixels);
 
     float xScale, yScale;
     glfwGetWindowContentScale(m_pWindow, &xScale, &yScale);
@@ -106,6 +115,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         }
 #endif
+        glEnable(GL_MULTISAMPLE);
 
         // Setup Dear ImGui context.
         ImGui::CreateContext();

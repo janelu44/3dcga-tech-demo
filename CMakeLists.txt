@@ -15,7 +15,23 @@ add_executable(FinalProject
 	"src/camera.cpp"
 	"src/mesh.cpp"
     "src/texture.cpp"
-)
+	"src/player.cpp"
+	"src/shadow/shadow_directions.h"
+	"src/shadow/shadow_map_fbo.cpp"
+	"src/shadow/shadow_map_fbo.h"
+	"src/environment/env_map.cpp"
+	"src/environment/env_map.h"
+	"src/planet.h"
+	"src/planet.cpp"
+	"src/planet_system.h"
+	"src/planet_system.cpp"
+	"src/minimap/minimap.cpp"
+	"src/bezier/curve.cpp"
+	"src/bezier/path.cpp"
+	"src/shadow/spotlight_shadow_map.cpp"
+	"src/shadow/spotlight_shadow_map.h"
+	"src/particle/particle.cpp"
+	"src/particle/engine.cpp"   "src/mazeify/generator.cpp")
 target_compile_features(FinalProject PRIVATE cxx_std_20)
 target_link_libraries(FinalProject PRIVATE CGFramework)
 enable_sanitizers(FinalProject)
