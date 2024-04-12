@@ -30,7 +30,6 @@ add_executable(FinalProject
 	"src/bezier/path.cpp"
 	"src/shadow/spotlight_shadow_map.cpp"
 	"src/shadow/spotlight_shadow_map.h"
-)
 	"src/particle/particle.cpp"
 	"src/particle/engine.cpp"  )
 target_compile_features(FinalProject PRIVATE cxx_std_20)

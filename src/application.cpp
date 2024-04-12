@@ -155,6 +155,7 @@ public:
             particlesBuilder.addStage(GL_VERTEX_SHADER, "shaders/particles_vert.glsl");
             particlesBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/particles_frag.glsl");
             m_particlesShader = particlesBuilder.build();
+
             ShaderBuilder textureBuilder;
             textureBuilder.addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl");
             textureBuilder.addStage(GL_FRAGMENT_SHADER, "shaders/texture_frag.glsl");
