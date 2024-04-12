@@ -405,13 +405,12 @@ public:
     void renderMinimap() {
         m_minimapShader.bind();
 
-        glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE_MINUS_CONSTANT_ALPHA, GL_CONSTANT_ALPHA);
         glBlendColor(0.0f, 0.0f, 0.0f, m_thirdPerson || m_flatWorld ? 0.0f : 0.25f);
 
         glm::vec3 scale = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapScaleTp, guiValues.minimapScaleTp, 1.0f) : glm::vec3(guiValues.minimapScaleFp, guiValues.minimapScaleFp, 1.0f);
-        glm::vec3 pos = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapPosition, 0.0f) : glm::vec3(0.0f, 0.009f, 0.0f);
+        glm::vec3 pos = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapPosition, 0.0f) : glm::vec3(0.0f, 0.009f, guiValues.minimapPositionz);
         glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), pos);
         glm::mat4 minimapScale = glm::scale(minimapPos, scale);
 
@@ -422,7 +421,6 @@ public:
         glUniform1i(2, 4);
 
         m_minimap.Draw();
-        glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
     }
 
@@ -724,8 +722,9 @@ public:
 
         // minimap
         glm::vec2 minimapPosition = glm::vec2(0.97f, 0.423f);
-        float minimapScaleFp = 0.4f;
+        float minimapScaleFp = 0.138f;
         float minimapScaleTp = 0.5f;
+        float minimapPositionz = 0.727f;
     } guiValues;
 
     void gui() {
@@ -741,10 +740,12 @@ public:
             ImGui::Text("Minimap position");
             ImGui::SameLine(sameLineOffset);
             ImGui::DragFloat2("##MinimapPosition", glm::value_ptr(guiValues.minimapPosition), 0.001f);
+            ImGui::DragFloat("##MinimapPositioqn", &guiValues.minimapPositionz, 0.001f);
 
             ImGui::Text("Minimap scale");
             ImGui::SameLine(sameLineOffset);
             ImGui::DragFloat("##MinimapScale", &guiValues.minimapScaleTp, 0.001f);
+            ImGui::DragFloat("##MinimapScaleq", &guiValues.minimapScaleFp, 0.001f);
             ImGui::SliderFloat("Render Distance", &m_renderDistance, 10.0f, 100.0f);
 
             ImGui::DragFloat3("##RocketPos", glm::value_ptr(m_flatRocketPos));
