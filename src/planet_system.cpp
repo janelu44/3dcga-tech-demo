@@ -40,7 +40,7 @@ PlanetSystem::PlanetSystem() {
     mars.orbitRadius = earth.orbitRadius + 6.0f;
     mars.orbitAngle = glm::vec3(0.0f, 1.0f, 0.0f);
     mars.orbitSpeed = 0.4f;
-    mars.baseColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    mars.baseColor = glm::vec3(0.624f, 0.424f, 0.302f);
     mars.loadColorMap("resources/textures/mars.jpg");
     mars.loadNormalMap("resources/normal/mars_normal.jpg");
 

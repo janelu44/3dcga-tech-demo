@@ -448,7 +448,7 @@ public:
                     {1.0f, 0.0f, 0.5f},
                     {1.0f, 1.0f, 0.0f}
             };
-            ioanCenter = glm::vec3(20.0f, 0.0f, 20.0f);
+            ioanCenter = glm::vec3(-5.0f, -7.0f, -5.0f);
             for (int i = 0; i < 3; i++) {
                 glm::mat4 ioanPos = glm::mat4(1.0f);
                 ioanPos = glm::translate(ioanPos, ioanPath.evaluate(ioanProgress[i]));
