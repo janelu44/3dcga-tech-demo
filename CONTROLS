@@ -1,0 +1,68 @@
+====================
+       GENERAL
+====================
+RMB (hold) - look around
+1 - switch between space and flat worlds (only in first person)
+P - pause game logic
+C - toggle cursor capture
+
+====================
+       MINIMAP
+====================
+            "You Are Here"            .   .  +  . . .
+.                 |             .  .   .    .    . .
+                  |           .     .     . +.    +  .
+                 \|/            .       .   . .
+        . .       V          .    * . . .  .  +   .
+           +      .           .   .      +
+                            .       . +  .+. .
+====================
+M - toggle minimap
+N - toggle realistic rendering in minimap
+= - zoom in minimap
+- - zoom out minimap
+
+
+====================
+      FLAT WORLD
+====================
+ @. /\ *     ###     .      .        .            *
+ @ /  \  *  #####   .     *      *        *    .
+ ]/ [] \  ######### *    .  *       .  //    .  *   .
+ / [][] \###\#|#/###   ..    *     .  //  *  .  ..  *
+ |  __  | ###\|/###  *    *  ___o |==// .      *   *
+ |  |!  |  # }|{  #         /\  \/  //|\
+ |  ||  |    }|{    ejm97  / /        | \
+====================
+I - toggle daytime force
+O - toggle night-time force
+E - toggle flashlight
+
+
+====================
+     SPACE WORLD
+====================
+                 '
+   *   '*       *          .
+                *       '
+           *                
+     *
+                *
+                  *
+====================
+V - switch between first and third person view
+
+
+====================
+   DEBUG / PERF.
+====================
+   \
+    '-.__.-'
+    /oo |--.--,--,--.
+    \_.-'._i__i__i_.'
+          """""""""  
+fsc
+====================
+G - toggle debug UI
+H - toggle shadows
+

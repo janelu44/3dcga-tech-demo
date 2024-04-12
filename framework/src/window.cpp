@@ -7,6 +7,7 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include <iostream>
 #include <stb/stb_image_write.h>
+#include <stb/stb_image.h>
 
 static void glfwErrorCallback(int error, const char* description)
 {
@@ -82,6 +83,11 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
     }
     glfwMakeContextCurrent(m_pWindow);
     glfwSwapInterval(1); // Enable vsync. To disable vsync set this to 0.
+
+    GLFWimage image;
+    image.pixels = stbi_load("resources/icon.png", &image.width, &image.height, 0, 4);
+    glfwSetWindowIcon(m_pWindow, 1, &image);
+    stbi_image_free(image.pixels);
 
     float xScale, yScale;
     glfwGetWindowContentScale(m_pWindow, &xScale, &yScale);
