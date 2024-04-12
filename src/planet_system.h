@@ -18,6 +18,14 @@ class PlanetSystem {
     int dynamicTextureIteration = 0;
     int dynamicTextureFrametime = 5;
 
+    Shader defaultShader = ShaderBuilder()
+            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
+            .addStage(GL_FRAGMENT_SHADER, "shaders/shader_frag.glsl")
+            .build();
+    Shader materialShader = ShaderBuilder()
+            .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
+            .addStage(GL_FRAGMENT_SHADER, "shaders/material_frag.glsl")
+            .build();
     Shader colorShader = ShaderBuilder()
             .addStage(GL_VERTEX_SHADER, "shaders/shader_vert.glsl")
             .addStage(GL_FRAGMENT_SHADER, "shaders/minimapColor_frag.glsl")
@@ -40,8 +48,9 @@ class PlanetSystem {
     // SOLAR SYSTEM
     Planet sun = Planet(sphereMeshPath, textureShader);
     Planet earth = Planet(sphereMeshPath, textureShader);
-    Planet moon = Planet(sphereMeshPath, textureShader);
+    Planet moon = Planet(sphereMeshPath, defaultShader);
     Planet mars = Planet(sphereMeshPath, textureShader);
+    Planet dynamic = Planet(sphereMeshPath, textureShader);
 
     // PBR
     Planet pbr = Planet(sphereMeshPath, pbrShader);

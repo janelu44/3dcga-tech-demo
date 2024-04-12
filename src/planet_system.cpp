@@ -34,7 +34,6 @@ PlanetSystem::PlanetSystem() {
     moon.orbitAngle = glm::vec3(0.0f, 1.0f, 0.0f);
     moon.orbitSpeed = 2.0f;
     moon.baseColor = glm::vec3(0.9f, 0.9f, 0.9f);
-    moon.loadDynamicTextures("resources/textures/dynamic/lsd/lsd_", 9, 1);
 
     planets["Mars"] = &mars;
     mars.radius = 0.8f;
@@ -45,10 +44,21 @@ PlanetSystem::PlanetSystem() {
     mars.loadColorMap("resources/textures/mars.jpg");
     mars.loadNormalMap("resources/normal/mars_normal.jpg");
 
+    planets["Dynamic"] = &dynamic;
+    dynamic.radius = 1.4f;
+    dynamic.orbitRadius = mars.orbitRadius;
+    dynamic.orbitAngle = glm::vec2(20.0f, 0.0f);
+    dynamic.orbitProgress = 160.0f;
+    dynamic.orbitSpeed = 0.4f;
+    dynamic.revolutionSpeed = 0.3f;
+    dynamic.baseColor = glm::vec3(0.98f, 0.784f, 0.784f);
+    dynamic.loadDynamicTextures("resources/textures/dynamic/trip/trip_", 30, 2);
+
     planets["pbr"] = &pbr;
     pbr.radius = 0.8f;
     pbr.orbitRadius = mars.orbitRadius + 2.0f;
-    pbr.orbitSpeed = 0.0f;
+    pbr.orbitSpeed = 0.1f;
+    pbr.orbitAngle = glm::vec2(0.0f, -10.0f);
     pbr.baseColor = glm::vec3(1.0f, 1.0f, 1.0f);
     pbr.revolutionSpeed = 0.02f;
     std::string pbrMaterial = "alien-carniverous-plant";
@@ -62,13 +72,15 @@ PlanetSystem::PlanetSystem() {
     planets["pbrLight1"] = &pbrLight1;
     pbrLight1.radius = 0.05f;
     pbrLight1.orbitRadius = pbr.radius + 0.5f;
-    pbrLight1.orbitSpeed = 0.2f;
+    pbrLight1.orbitAngleShift = glm::vec2(0.2f, 0.15f);
+    pbrLight1.orbitSpeed = -0.2f;
     pbrLight1.baseColor = glm::vec3(1.0f, 0.0f, 0.0f);
 
     planets["pbrLight2"] = &pbrLight2;
     pbrLight2.radius = 0.05f;
     pbrLight2.orbitRadius = pbr.radius + 0.5f;
     pbrLight2.orbitAngle = glm::vec2(45.0f, 0.0f);
+    pbrLight1.orbitAngleShift = glm::vec2(-0.2f, 0.4f);
     pbrLight2.orbitSpeed = 0.3f;
     pbrLight2.orbitProgress = 60.0f;
     pbrLight2.baseColor = glm::vec3(1.0f, 1.0f, 0.0f);
@@ -77,7 +89,8 @@ PlanetSystem::PlanetSystem() {
     pbrLight3.radius = 0.05f;
     pbrLight3.orbitRadius = pbr.radius + 0.5f;
     pbrLight3.orbitAngle = glm::vec2(0.0f, 45.0f);
-    pbrLight3.orbitSpeed = 0.4f;
+    pbrLight1.orbitAngleShift = glm::vec2(0.2f, -0.15f);
+    pbrLight3.orbitSpeed = -0.4f;
     pbrLight3.orbitProgress = 150.0f;
     pbrLight3.baseColor = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -85,6 +98,7 @@ PlanetSystem::PlanetSystem() {
     pbrLight4.radius = 0.05f;
     pbrLight4.orbitRadius = pbr.radius + 0.5f;
     pbrLight4.orbitAngle = glm::vec2(60.0f, 30.0f);
+    pbrLight1.orbitAngleShift = glm::vec2(-0.1f, -0.1f);
     pbrLight4.orbitSpeed = 0.5f;
     pbrLight4.orbitProgress = 230.0f;
     pbrLight4.baseColor = glm::vec3(0.0f, 1.0f, 1.0f);
@@ -93,7 +107,7 @@ PlanetSystem::PlanetSystem() {
     env.radius = 1.0f;
     env.orbitRadius = pbr.orbitRadius;
     env.orbitProgress = 180.0f;
-    env.orbitSpeed = 0.0f;
+    env.orbitSpeed = 0.2f;
     env.revolutionSpeed = 0.0f;
     env.baseColor = glm::vec3(1.0f, 0.0f, 1.0f);
     env.bypassEnvMap = true;
@@ -205,7 +219,8 @@ void PlanetSystem::update() {
     earth.update(sun.matRef);
     moon.update(earth.matRef);
     mars.update(sun.matRef);
-    
+    dynamic.update(sun.matRef);
+
     pbr.update(sun.matRef);
     pbrLight1.update(pbr.matRef);
     pbrLight2.update(pbr.matRef);
@@ -273,7 +288,7 @@ void PlanetSystem::draw(glm::mat4 mvp, glm::vec3 cameraPos, ShadowMapFBO &shadow
         glUniform3fv(7, 1, glm::value_ptr(planetPtr->baseColor));
         glUniform1i(8, planetPtr->allowLightBehind ? GL_TRUE : GL_FALSE);
 
-        glUniform1i(20, planetPtr->bypassShadowMap ? GL_TRUE : GL_FALSE);
+        glUniform1i(20, useShadowMap ? GL_TRUE : GL_FALSE);
         if (useShadowMap) {
             shadowMap.BindForReading(GL_TEXTURE21);
             glUniform1i(21, 21);
@@ -299,26 +314,36 @@ void PlanetSystem::draw(glm::mat4 mvp, glm::vec3 cameraPos, ShadowMapFBO &shadow
                 planetPtr->normalTexture.value().bind(GL_TEXTURE11);
                 glUniform1i(31, 11);
                 glUniform1i(32, GL_TRUE);
+            } else {
+                glUniform1i(32, GL_FALSE);
             }
             if (planetPtr->albedoTexture.has_value()) {
                 planetPtr->albedoTexture.value().bind(GL_TEXTURE12);
                 glUniform1i(33, 12);
                 glUniform1i(34, GL_TRUE);
+            } else {
+                glUniform1i(34, GL_FALSE);
             }
             if (planetPtr->metallicTexture.has_value()) {
                 planetPtr->metallicTexture.value().bind(GL_TEXTURE13);
                 glUniform1i(35, 13);
                 glUniform1i(36, GL_TRUE);
+            } else {
+                glUniform1i(36, GL_FALSE);
             }
             if (planetPtr->roughnessTexture.has_value()) {
                 planetPtr->roughnessTexture.value().bind(GL_TEXTURE14);
                 glUniform1i(37, 14);
                 glUniform1i(38, GL_TRUE);
+            } else {
+                glUniform1i(38, GL_FALSE);
             }
             if (planetPtr->aoTexture.has_value()) {
                 planetPtr->aoTexture.value().bind(GL_TEXTURE15);
                 glUniform1i(39, 15);
                 glUniform1i(40, GL_TRUE);
+            } else {
+                glUniform1i(40, GL_FALSE);
             }
 
             if (useEnvMap) {
