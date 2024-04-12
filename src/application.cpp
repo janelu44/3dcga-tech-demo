@@ -410,7 +410,7 @@ public:
         glBlendColor(0.0f, 0.0f, 0.0f, m_thirdPerson || m_flatWorld ? 0.0f : 0.25f);
 
         glm::vec3 scale = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapScaleTp, guiValues.minimapScaleTp, 1.0f) : glm::vec3(guiValues.minimapScaleFp, guiValues.minimapScaleFp, 1.0f);
-        glm::vec3 pos = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapPosition, 0.0f) : glm::vec3(0.0f, 0.009f, guiValues.minimapPositionz);
+        glm::vec3 pos = m_thirdPerson || m_flatWorld ? glm::vec3(guiValues.minimapPosition, 0.0f) : glm::vec3(0.0f, glm::mix(-0.139f, 0.009f, m_minimapFpvSlidePosition), guiValues.minimapPositionz);
         glm::mat4 minimapPos = glm::translate(glm::mat4(1.0f), pos);
         glm::mat4 minimapScale = glm::scale(minimapPos, scale);
 
@@ -741,6 +741,7 @@ public:
             ImGui::SameLine(sameLineOffset);
             ImGui::DragFloat2("##MinimapPosition", glm::value_ptr(guiValues.minimapPosition), 0.001f);
             ImGui::DragFloat("##MinimapPositioqn", &guiValues.minimapPositionz, 0.001f);
+            ImGui::DragFloat("##MinimapSlide", &m_minimapFpvSlidePosition, 0.01f);
 
             ImGui::Text("Minimap scale");
             ImGui::SameLine(sameLineOffset);
@@ -786,6 +787,11 @@ public:
             updateCamera();
             rocketExhaust.update(frametime, std::max(std::min(abs(m_player.moveForward.speed), 0.05f) / 0.05f, 0.01f));
 
+            if (m_minimapEnabled && m_minimapFpvSlidePosition != 1.0f)
+                m_minimapFpvSlidePosition = std::min(m_minimapFpvSlidePosition + frametime / 1000.f, 1.0f);
+            else if (!m_minimapEnabled && m_minimapFpvSlidePosition != 0.0f)
+                m_minimapFpvSlidePosition = std::max(m_minimapFpvSlidePosition - frametime / 1000.f, 0.0f);
+
             // Update projection and mvp matrices
             m_projectionMatrix = glm::perspective(
                     glm::radians(m_camera.fov),
@@ -797,7 +803,7 @@ public:
             glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
 
             if (m_shadowsEnabled) renderShadowMap();
-            if (m_minimapEnabled) renderMinimapTexture();
+            if (m_minimapEnabled || (!m_minimapEnabled && !m_flatWorld && !m_thirdPerson && m_minimapFpvSlidePosition != 0.0f)) renderMinimapTexture();
             if (m_spotlightEnabled && m_flatWorld) renderSpotlight();
 
             renderEnvMap(planetSystem.getEnvMapPosition());
@@ -833,7 +839,7 @@ public:
                                   true);
                 renderIoanSystem(m_defaultShader, mvpMatrix);
                 if (m_renderRocket) renderRocket(m_materialShader, mvpMatrix);
-                if (m_minimapEnabled) renderMinimap();
+                if (m_minimapEnabled || (!m_minimapEnabled && !m_thirdPerson && m_minimapFpvSlidePosition != 0.0f)) renderMinimap();
             }
 
             m_window.swapBuffers();
@@ -916,6 +922,7 @@ public:
         if (key == GLFW_KEY_Z) {
             m_renderRocket = !m_renderRocket;
             m_minimapEnabled = m_renderRocket;
+            m_minimapFpvSlidePosition = 0.0f;
         }
     }
 
@@ -1017,6 +1024,7 @@ private:
     // Minimap
     Minimap m_minimap;
     int m_minimapResolution{1024};
+    float m_minimapFpvSlidePosition{ 0.0f };
     bool m_minimapEnabled{true};
 
     std::vector<GPUMesh> m_meshes;
