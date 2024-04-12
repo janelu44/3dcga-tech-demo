@@ -121,11 +121,13 @@ void main() {
 
     float shading = useNormalMap ? lambertWithNormal(TBN, texCoord) : lambert(normal);
     shading += blinnPhong();
+    float distance = length(currentLightPos - fragPos);
+    float attenuation = 1.0 / pow(distance, 1.2);
     vec3 color = shading * texture(texColor, texCoord).rgb;
 
     float shadow = useShadow ? computeShadow() : 1.0;
     float spotlight = useSpotlight ? computeSpotlight() : 1.0;
 
     fragColor = vec4(color * shadow, 1.0);
-    if (isNight) fragColor = vec4(color * (useSpotlight ? max(spotlight, 0.1f) : 0.1f) , 1.0f);
+    if (isNight) fragColor = vec4(color * attenuation * (useSpotlight ? max(spotlight, 0.1f) : 0.1f) , 1.0f);
 }

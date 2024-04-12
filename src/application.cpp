@@ -529,20 +529,20 @@ public:
         for (float x = genBottomCorner.x; x < genTopCorner.x; x += 2.0f) {
             for (float y = genBottomCorner.y; y < genTopCorner.y; y += 2.0f) {
                 glm::vec2 tileCenter = {std::round(x / 2.0f) * 2.0f, std::round(y / 2.0f) * 2.0f};
-                glm::vec3 tilePos = glm::vec3(tileCenter.x, -0.04f, tileCenter.y);
+                glm::vec3 tilePos = glm::vec3(tileCenter.x, m_tileY, tileCenter.y);
                 if (glm::distance(tilePos, m_player.position) < genRadius) tilePositions.push_back(tilePos);
             }
         }
         if (!isShadowRender && !isSpotlightRender) renderMultipleObjects(m_textureShader, m_tile, m_tileTexture, mvpMatrix, tilePositions, lightMatrix);
 
-        glm::vec3 startingPos = glm::vec3(-10.0f, -0.05f, -10.0f);
+        glm::vec3 startingPos = m_mazeStartPos;
         std::vector<glm::vec3> mazeBlockPositions;
         for (int i = 0; i < 25; i++) {
             for (int j = 0; j < 25; j++) {
                 if (m_mazeGrid[i][j] == 1) {
                     for (int k = 0; k < 3; k++) {
                         float factor = 0.24f;
-                        glm::vec3 mazeBlockPos = startingPos + glm::vec3(i * 0.16f, k * 0.16f, j * 0.16f);
+                        glm::vec3 mazeBlockPos = startingPos + glm::vec3(i * factor, k * factor, j * factor);
                         if (glm::distance(mazeBlockPos, m_player.position) < genRadius) mazeBlockPositions.push_back(mazeBlockPos);
                     }
                 }
@@ -560,32 +560,26 @@ public:
 
         // Rocket render data
         ObjectRenderData rocketData;
-        rocketData.position = glm::vec3(1.0f, 0.29f, 1.0f);
+        rocketData.position = m_flatRocketPos;
         rocketData.angle = glm::radians(90.0f);
         rocketData.rotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
         rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
-        rocketData.scale = glm::vec3(0.2f);
-        if (glm::distance(rocketData.position, m_player.position) < genRadius)
-            renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
+        rocketData.scale = glm::vec3(m_flatRocketScale);
+        if (glm::distance(rocketData.position, m_player.position) < genRadius) {
+            if (!isShadowRender && !isSpotlightRender) renderFlatWorldObject(m_materialShader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
+            else renderFlatWorldObject(shader, m_rocket, mvpMatrix, rocketData, lightMatrix, isSpotlightRender);
+        }
+
 
         // Character render data
         ObjectRenderData characterData;
         glm::vec3 characterFwd = glm::vec3(0.0f, 0.0f, 1.0f);
         glm::vec3 characterFwdXZ = glm::normalize(glm::vec3(m_player.forward.x, 0.0f, m_player.forward.z));
-        characterData.position = m_player.position - glm::vec3(0.0f, 0.115f, 0.0f);
+        characterData.position = m_player.position - glm::vec3(0.0f, m_flatCharacterY, 0.0f);
         characterData.angle = glm::acos(glm::dot(characterFwd, characterFwdXZ));
         characterData.rotationAxis = glm::normalize(glm::cross(characterFwd, characterFwdXZ));
-        characterData.scale = glm::vec3(0.1f);
+        characterData.scale = glm::vec3(m_flatCharacterScale);
         if (isShadowRender && !isSpotlightRender) renderFlatWorldObject(shader, m_character, mvpMatrix, characterData, lightMatrix);
-
-//        // House render data
-//        ObjectRenderData houseData;
-//        houseData.position = glm::vec3(1.0f, -0.05f, -0.75f);
-//        houseData.angle = glm::radians(0.0f);
-//        houseData.scale = glm::vec3(0.2f);
-//        rocketData.color = glm::vec3(0.7f, 0.7f, 0.7f);
-//        if (glm::distance(houseData.position, m_player.position) < genRadius)
-//            renderFlatWorldObject(shader, m_house, mvpMatrix, houseData, lightMatrix, isSpotlightRender);
     }
 
     void renderFlatWorldObject(Shader& shader, std::vector<GPUMesh>& meshes, glm::mat4 mvpMatrix, ObjectRenderData data, glm::mat4 lightMatrix, bool isSpotlightRender = false) {
@@ -607,7 +601,7 @@ public:
             glUniform1i(20, m_shadowsEnabled);
             m_shadowMapFBO.BindForReading(GL_TEXTURE9);
             glUniform1i(21, 9);
-            glUniform1f(22, 0.005f);
+            glUniform1f(22, 0.05f);
             m_spotlightMap.BindForReading(GL_TEXTURE8);
             glUniform1i(24, 8);
             glUniform1i(25, m_spotlightEnabled);
@@ -700,7 +694,7 @@ public:
         m_thirdCamera.position = m_player.position - m_distance * m_thirdCamera.forward;
         m_camera = m_thirdPerson ? m_thirdCamera : m_firstCamera;
 
-        m_spotlightPos = m_camera.position - glm::vec3(-0.05f, 0.05f, 0.0f);
+        m_spotlightPos = m_camera.position - glm::vec3(-0.1f, 0.05f, 0.0f);
     }
 
     void updateFlatWorldSun() {
@@ -749,6 +743,15 @@ public:
             ImGui::SameLine(sameLineOffset);
             ImGui::DragFloat("##MinimapScale", &guiValues.minimapScaleTp, 0.001f);
             ImGui::SliderFloat("Render Distance", &m_renderDistance, 10.0f, 100.0f);
+
+            ImGui::DragFloat3("##RocketPos", glm::value_ptr(m_flatRocketPos));
+            ImGui::DragFloat("##RocketScale", &m_flatRocketScale);
+            ImGui::DragFloat3("##MazePos", glm::value_ptr(m_mazeStartPos));
+            ImGui::DragFloat("##CharacterScale", &m_flatCharacterScale);
+            ImGui::DragFloat("##TileY", &m_tileY);
+            ImGui::DragFloat("##Char", &m_flatCharacterY);
+
+
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -818,7 +821,7 @@ public:
                 glm::mat4 lightSpaceMatrix = spotlightProjectionMatrix * lightViewMatrix;
 
                 renderFlatWorld(m_defaultShader, mvpMatrix, false, false, lightSpaceMatrix);
-                if (m_minimapEnabled) renderMinimap();
+                if (m_minimapEnabled && !m_forceNight) renderMinimap();
 
             } else {
                 renderCubeMap(m_cubemapShader, m_projectionMatrix, m_viewMatrix);
@@ -938,6 +941,12 @@ private:
     bool m_isNight{false};
     bool m_forceDay{false};
     bool m_forceNight{false};
+    glm::vec3 m_mazeStartPos{-1.0f, -0.2f, 3.0f};
+    glm::vec3 m_flatRocketPos{-1.0f, 2.18f, -4.0f};
+    float m_flatRocketScale{1.5f};
+    float m_tileY{-0.2f};
+    float m_flatCharacterScale{0.25f};
+    float m_flatCharacterY{0.2f};
 
     // Shaders for default rendering and for depth rendering
     Shader m_testShader;
