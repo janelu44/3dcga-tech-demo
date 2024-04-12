@@ -370,7 +370,7 @@ public:
                 m_camera.zFar);
         glm::vec3 minimapCenter = glm::vec3(m_player.position.x, 10.0f, m_player.position.z);
         glm::mat4 minimapViewMatrix = glm::lookAt(minimapCenter, minimapCenter + glm::vec3(0.0f, -1.0f, 0.0f),
-                                                  glm::vec3(0.0f, 0.0f, -1.0f));
+                                                  m_thirdPerson ? glm::vec3(0.0f, 0.0f, -1.0f) : m_player.forward);
         glm::mat4 minimapSpaceMatrix = minimapProjectionMatrix * minimapViewMatrix;
 
         m_minimap.BindForWriting();
