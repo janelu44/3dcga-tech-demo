@@ -68,6 +68,10 @@ void Camera::update(bool captureCursor, long long frametime) {
     }
 }
 
+void Camera::resync() {
+    m_prevCursorPos = m_pWindow->getCursorPos();
+}
+
 void Camera::setTarget(const glm::vec3& futureForward, const glm::vec3& futureUp, const float timeToEnd) {
     moveToTarget = true;
     initialForward = forward;

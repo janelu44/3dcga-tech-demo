@@ -854,6 +854,9 @@ public:
             m_window.setMouseCapture(m_captureCursor);
         }
         if (key == GLFW_KEY_V) {
+            if (m_flatWorld)
+                return;
+
             m_thirdPerson = !m_thirdPerson;
             m_firstCamera = m_playerCamera;
             m_thirdCamera = m_playerCamera;
@@ -868,12 +871,23 @@ public:
             m_spotlightEnabled = !m_spotlightEnabled;
         }
         if (key == GLFW_KEY_1) {
+            if (m_thirdPerson)
+                return;
+
             if (!m_flatWorld)
                 regenerateMaze();
 
             m_flatWorld = !m_flatWorld;
-            m_playerCamera = m_flatWorld ? m_flatPlayerCamera : m_spacePlayerCamera;
+
+            (m_flatWorld ? m_spacePlayer : m_flatPlayer) = m_player;
             m_player = m_flatWorld ? m_flatPlayer : m_spacePlayer;
+
+            (m_flatWorld ? m_spacePlayerCamera : m_flatPlayerCamera) = m_playerCamera;
+            m_playerCamera = m_flatWorld ? m_flatPlayerCamera : m_spacePlayerCamera;
+            m_playerCamera.resync();
+
+            m_detachedCamera = false;
+            m_firstCamera = m_playerCamera;
         }
         if (key == GLFW_KEY_M) {
             m_minimapEnabled = !m_minimapEnabled;

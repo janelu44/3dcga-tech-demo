@@ -32,6 +32,7 @@ public:
     glm::vec3 targetUp;
     float interpolationSpeed;
     float interpolationProgress;
+    void resync();
 
 private:
     static constexpr glm::vec3 s_yAxis { 0, 1, 0 };
